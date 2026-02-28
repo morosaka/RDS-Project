@@ -1,6 +1,6 @@
 # RowData Studio
 
-RowData Studio (internally referred to as Cadenza) is a native Apple tool (macOS + iPadOS + iOS) for deep analysis of rowing sessions. It integrates video tracks, GPMF telemetry data from GoPro, and biometric/instrumental data from FIT files (NK SpeedCoach, Garmin, Apple Watch).
+RowData Studio is a native Apple tool (macOS + iPadOS + iOS) for deep analysis of rowing sessions. It integrates video tracks, GPMF telemetry data from GoPro, and biometric/instrumental data from FIT files (NK SpeedCoach, Garmin, Apple Watch).
 
 ## Features
 
