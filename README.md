@@ -25,7 +25,7 @@ RowData Studio is a native Apple tool (macOS + iPadOS + iOS) for deep analysis o
 
 ## Author
 
-Mauro Sacca
+morosaka
 
 ---
 *This repository contains the core SDKs and documentation for the RowData Studio project.*
