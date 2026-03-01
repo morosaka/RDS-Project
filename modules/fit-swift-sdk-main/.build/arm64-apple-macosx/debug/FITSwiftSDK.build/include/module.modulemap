@@ -1,0 +1,3 @@
+module FITSwiftSDK {
+    header "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDK.build/include/FITSwiftSDK-Swift.h"
+}

@@ -1,0 +1,208 @@
+{
+  "": {
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/master.swiftdeps"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/AccumulatorTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/AccumulatorTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/AccumulatorTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/AccumulatorTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/AccumulatorTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/AccumulatorTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/ArrayExtensionTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ArrayExtensionTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ArrayExtensionTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ArrayExtensionTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ArrayExtensionTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ArrayExtensionTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/BaseTypeTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BaseTypeTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BaseTypeTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BaseTypeTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BaseTypeTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BaseTypeTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/BitStreamTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BitStreamTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BitStreamTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BitStreamTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BitStreamTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/BitStreamTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/CrcCalculatorTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/CrcCalculatorTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/CrcCalculatorTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/CrcCalculatorTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/CrcCalculatorTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/CrcCalculatorTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/DecoderIntegrationTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderIntegrationTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderIntegrationTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderIntegrationTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderIntegrationTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderIntegrationTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/DecoderTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/DeveloperDataLookupTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperDataLookupTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperDataLookupTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperDataLookupTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperDataLookupTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperDataLookupTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/DeveloperFieldDescriptionTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldDescriptionTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldDescriptionTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldDescriptionTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldDescriptionTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldDescriptionTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/DeveloperFieldTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DeveloperFieldTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/EncodeDecodeIntegrationTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncodeDecodeIntegrationTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncodeDecodeIntegrationTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncodeDecodeIntegrationTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncodeDecodeIntegrationTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncodeDecodeIntegrationTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/EncoderTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncoderTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncoderTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncoderTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncoderTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/EncoderTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/Examples/ActivityEncodeTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityEncodeTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityEncodeTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityEncodeTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityEncodeTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityEncodeTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/Examples/ActivityReEncodeTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityReEncodeTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityReEncodeTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityReEncodeTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityReEncodeTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ActivityReEncodeTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/Examples/DecoderFitListenerTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderFitListenerTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderFitListenerTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderFitListenerTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderFitListenerTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderFitListenerTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/Examples/DecoderMesgBroadcasterTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderMesgBroadcasterTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderMesgBroadcasterTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderMesgBroadcasterTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderMesgBroadcasterTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/DecoderMesgBroadcasterTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/FactoryTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FactoryTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FactoryTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FactoryTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FactoryTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FactoryTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/FieldTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FieldTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FieldTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FieldTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FieldTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FieldTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/FileHeaderTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileHeaderTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileHeaderTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileHeaderTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileHeaderTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileHeaderTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/FileIdMesgTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileIdMesgTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileIdMesgTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileIdMesgTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileIdMesgTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FileIdMesgTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/FitListenerTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FitListenerTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FitListenerTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FitListenerTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FitListenerTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/FitListenerTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/HrMesgUtilTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/HrMesgUtilTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/HrMesgUtilTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/HrMesgUtilTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/HrMesgUtilTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/HrMesgUtilTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/InputStreamTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/InputStreamTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/InputStreamTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/InputStreamTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/InputStreamTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/InputStreamTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/MesgBroadcasterTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgBroadcasterTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgBroadcasterTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgBroadcasterTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgBroadcasterTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgBroadcasterTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/MesgDefinitionTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgDefinitionTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgDefinitionTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgDefinitionTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgDefinitionTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgDefinitionTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/MesgTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/MesgTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/SubFieldTests.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/SubFieldTests.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/SubFieldTests.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/SubFieldTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/SubFieldTests.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/SubFieldTests.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/TestData/ExpandedHrMesgs.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ExpandedHrMesgs.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ExpandedHrMesgs.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ExpandedHrMesgs~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ExpandedHrMesgs.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/ExpandedHrMesgs.dia"
+  },
+  "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/Tests/FITSwiftSDKTests/TestData/TestData.swift": {
+    "dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/TestData.d",
+    "object": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/TestData.swift.o",
+    "swiftmodule": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/TestData~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/TestData.swiftdeps",
+    "diagnostics": "/Volumes/WDSN770/Projects/Antigravity/RowData Studio/modules/fit-swift-sdk-main/.build/arm64-apple-macosx/debug/FITSwiftSDKTests.build/TestData.dia"
+  }
+}
