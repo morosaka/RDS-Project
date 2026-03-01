@@ -73,48 +73,201 @@ Stroke #, Elapsed Time, Distance, Split, SR, Catch Angle, Finish Angle, ...
 
 ## 5. Implementation Strategy
 
-### Phase A: CSV Parser Module (`app/Core/Services/NKEmpowerParser.swift`)
+### Phase A: Generic CSV Parser SDK (`modules/csv-swift-sdk-main/`)
 
-**Data Model:**
+**Architecture: Generic Parser + Vendor Profiles**
+
+Inspired by FIT SDK pattern, the CSV SDK separates generic CSV parsing (RFC 4180) from vendor-specific interpretation:
+
+```
+csv-swift-sdk-main/
+├── Sources/CSVSwiftSDK/
+│   ├── CSVParser.swift              # Generic RFC 4180 parser
+│   ├── Profiles/
+│   │   ├── CSVProfile.swift         # Protocol for all profiles
+│   │   ├── NKEmpowerProfile.swift   # NK Empower 13 metrics
+│   │   ├── NKSpeedCoachProfile.swift # NK SpeedCoach GPS/HR CSV
+│   │   ├── GarminProfile.swift      # Garmin Connect CSV export
+│   │   └── PeachPowerLineProfile.swift # Peach force/angle CSV
+│   └── Types.swift
+└── Tests/
+```
+
+**Generic Parser (CSVParser.swift):**
 ```swift
-struct NKEmpowerSession: Codable {
-    let metadata: SessionMetadata
-    let intervals: [IntervalSummary]
-    let strokes: [StrokeData]
-}
+public struct CSVParser {
+    public init() {}
 
-struct StrokeData: Codable {
-    let strokeNumber: Int
-    let elapsedTime: TimeInterval        // Seconds from session start
-    let distance: Double                 // Cumulative meters
-    let split: TimeInterval              // 500m pace
-    let strokeRate: Double               // SPM
+    public func parse<P: CSVProfile>(
+        _ data: Data,
+        using profile: P
+    ) throws -> P.SessionType {
+        // 1. RFC 4180 parsing → 2D array
+        let rows = try parseRFC4180(data)
 
-    // Empower metrics (13 total)
-    let catchAngle: Double               // degrees
-    let finishAngle: Double              // degrees
-    let slip: Double                     // degrees
-    let wash: Double                     // degrees
-    let maxForce: Double                 // N or lbs
-    let avgForce: Double                 // N or lbs
-    let maxForceAngle: Double            // degrees
-    let peakPower: Double                // W
-    let avgPower: Double                 // W
-    let work: Double                     // J
-    let strokeLength: Double             // degrees
-    let effectiveLength: Double          // degrees
+        // 2. Delegate to profile for interpretation
+        return try profile.parse(rows)
+    }
+
+    private func parseRFC4180(_ data: Data) throws -> [[String]] {
+        // Generic CSV parsing (handles quotes, escapes, etc.)
+    }
 }
 ```
 
-**Parser Implementation:**
-1. **Section Detection**: Identify header boundaries (`Session Summary`, `Interval Summary`, `Stroke Detail`)
-2. **Unit Detection**: Parse header row for unit indicators (N/lbs, °/rad)
-3. **Conversion**: Normalize to SI units (N, degrees, W, J) for internal storage
-4. **Validation**:
-   - Reject files with missing Empower columns
-   - Check for temporal monotonicity (elapsed time increasing)
-   - Validate angle ranges (catch: -70° to -30°, finish: 20° to 50°)
-5. **Error Handling**: Use `Result<NKEmpowerSession, NKParserError>` pattern
+**Profile Protocol:**
+```swift
+public protocol CSVProfile {
+    associatedtype SessionType: Codable
+
+    /// Detect if CSV matches this profile format
+    func matches(headers: [String], firstRow: [String]) -> Bool
+
+    /// Parse CSV rows into typed session
+    func parse(_ rows: [[String]]) throws -> SessionType
+
+    /// Validate parsed session
+    func validate(_ session: SessionType) -> [ValidationWarning]
+}
+```
+
+**NK Empower Profile (NKEmpowerProfile.swift):**
+```swift
+public struct NKEmpowerProfile: CSVProfile {
+    public typealias SessionType = NKEmpowerSession
+
+    public func matches(headers: [String], firstRow: [String]) -> Bool {
+        headers.contains("Catch Angle") &&
+        headers.contains("Max Force") &&
+        headers.contains("Work")
+    }
+
+    public func parse(_ rows: [[String]]) throws -> NKEmpowerSession {
+        // 1. Section Detection
+        guard let summaryStart = rows.firstIndex(where: { $0.first == "Session Summary" }),
+              let intervalStart = rows.firstIndex(where: { $0.first == "Interval Summary" }),
+              let strokeStart = rows.firstIndex(where: { $0.first == "Stroke Detail" })
+        else {
+            throw CSVError.missingSections
+        }
+
+        // 2. Parse metadata section
+        let metadata = try parseMetadata(rows[summaryStart..<intervalStart])
+
+        // 3. Parse intervals
+        let intervals = try parseIntervals(rows[intervalStart..<strokeStart])
+
+        // 4. Parse stroke detail (with unit detection)
+        let (strokes, units) = try parseStrokes(rows[strokeStart...])
+
+        // 5. Unit conversion to SI
+        let normalizedStrokes = strokes.map { normalize($0, units: units) }
+
+        return NKEmpowerSession(
+            metadata: metadata,
+            intervals: intervals,
+            strokes: normalizedStrokes
+        )
+    }
+
+    public func validate(_ session: NKEmpowerSession) -> [ValidationWarning] {
+        var warnings: [ValidationWarning] = []
+
+        // Temporal monotonicity
+        for i in 1..<session.strokes.count {
+            if session.strokes[i].elapsedTime < session.strokes[i-1].elapsedTime {
+                warnings.append(.nonMonotonicTime(stroke: i))
+            }
+        }
+
+        // Angle plausibility
+        for (idx, stroke) in session.strokes.enumerated() {
+            if stroke.catchAngle > -30 || stroke.catchAngle < -70 {
+                warnings.append(.implausibleCatchAngle(stroke: idx, value: stroke.catchAngle))
+            }
+            if stroke.finishAngle < 20 || stroke.finishAngle > 50 {
+                warnings.append(.implausibleFinishAngle(stroke: idx, value: stroke.finishAngle))
+            }
+        }
+
+        return warnings
+    }
+
+    private func normalize(_ stroke: StrokeData, units: UnitSet) -> StrokeData {
+        var normalized = stroke
+
+        // Force: lbs → N
+        if units.force == .pounds {
+            normalized.maxForce *= 4.448222
+            normalized.avgForce *= 4.448222
+        }
+
+        // Angles: radians → degrees (rare but possible)
+        if units.angle == .radians {
+            normalized.catchAngle *= 180.0 / .pi
+            normalized.finishAngle *= 180.0 / .pi
+            // ... etc
+        }
+
+        return normalized
+    }
+}
+
+// Data Model (as before)
+public struct NKEmpowerSession: Codable {
+    public let metadata: SessionMetadata
+    public let intervals: [IntervalSummary]
+    public let strokes: [StrokeData]
+}
+
+public struct StrokeData: Codable {
+    public let strokeNumber: Int
+    public let elapsedTime: TimeInterval
+    public let distance: Double
+    public let split: TimeInterval
+    public let strokeRate: Double
+
+    // Empower metrics (13 total)
+    public var catchAngle: Double
+    public var finishAngle: Double
+    public var slip: Double
+    public var wash: Double
+    public var maxForce: Double
+    public var avgForce: Double
+    public var maxForceAngle: Double
+    public var peakPower: Double
+    public var avgPower: Double
+    public var work: Double
+    public var strokeLength: Double
+    public var effectiveLength: Double
+}
+```
+
+**Usage in App:**
+```swift
+import CSVSwiftSDK
+
+let csvData = try Data(contentsOf: fileURL)
+let parser = CSVParser()
+let profile = NKEmpowerProfile()
+
+let session = try parser.parse(csvData, using: profile)
+let warnings = profile.validate(session)
+
+if !warnings.isEmpty {
+    // Display warnings to user
+    for warning in warnings {
+        print("⚠️ \(warning)")
+    }
+}
+```
+
+**Benefits of Generic Architecture:**
+1. **Reusability**: Same parser for NK, Garmin, Peach, future vendors
+2. **Extensibility**: New CSV source = new profile (< 200 lines code)
+3. **Testability**: Generic parser tested once, profiles tested independently
+4. **Consistency**: Same API for all CSV sources
+5. **Maintainability**: Bug fix in parser benefits all profiles
 
 ### Phase B: Temporal Alignment (`SyncEngine` Extension)
 
@@ -246,35 +399,74 @@ func createMockEmpowerData(strokeCount: Int = 500) -> NKEmpowerSession {
 
 ## 8. Testing & Validation Strategy
 
-### 8.1 Unit Tests (`NKEmpowerParserTests.swift`)
+### 8.1 Unit Tests
 
+**Generic Parser Tests (`CSVParserTests.swift`):**
 ```swift
-@Suite("NK Empower CSV Parser")
-struct NKEmpowerParserTests {
-    @Test("Parse valid CSV with 500 strokes")
+@Suite("Generic CSV Parser")
+struct CSVParserTests {
+    @Test("Parse RFC 4180 compliant CSV")
+    func testRFC4180Parsing() throws {
+        let csvData = """
+        Name,Age,City
+        "Doe, John",30,"New York"
+        Jane Smith,25,Boston
+        """.data(using: .utf8)!
+
+        let parser = CSVParser()
+        let rows = try parser.parseRFC4180(csvData)
+
+        #expect(rows.count == 3)  // Header + 2 data rows
+        #expect(rows[1][0] == "Doe, John")  // Quoted field
+    }
+}
+```
+
+**NK Empower Profile Tests (`NKEmpowerProfileTests.swift`):**
+```swift
+@Suite("NK Empower Profile")
+struct NKEmpowerProfileTests {
+    @Test("Parse valid NK Empower CSV with 500 strokes")
     func testValidCSVParsing() async throws {
         let csvData = loadMockCSV("empower_500strokes.csv")
-        let session = try NKEmpowerParser.parse(csvData)
+        let parser = CSVParser()
+        let profile = NKEmpowerProfile()
+
+        let session = try parser.parse(csvData, using: profile)
 
         #expect(session.strokes.count == 500)
         #expect(session.metadata.duration > 0)
     }
 
-    @Test("Handle missing force columns gracefully")
-    func testMissingColumns() {
-        let csvData = loadMockCSV("empower_incomplete.csv")
-        let result = NKEmpowerParser.parse(csvData)
+    @Test("Detect format from headers")
+    func testFormatDetection() {
+        let headers = ["Stroke #", "Catch Angle", "Max Force", "Work"]
+        let profile = NKEmpowerProfile()
 
-        #expect(result == .failure(.missingEmpowerColumns))
+        #expect(profile.matches(headers: headers, firstRow: []))
     }
 
     @Test("Unit conversion: lbs to Newtons")
     func testUnitConversion() throws {
         let csvData = loadMockCSV("empower_imperial_units.csv")
-        let session = try NKEmpowerParser.parse(csvData)
+        let parser = CSVParser()
+        let profile = NKEmpowerProfile()
+
+        let session = try parser.parse(csvData, using: profile)
 
         // 100 lbs ≈ 444.8 N
         #expect(abs(session.strokes[0].maxForce - 444.8) < 1.0)
+    }
+
+    @Test("Validation: implausible catch angle")
+    func testCatchAngleValidation() throws {
+        var session = createMockEmpowerSession()
+        session.strokes[0].catchAngle = -10  // Too shallow (should be -70 to -30)
+
+        let profile = NKEmpowerProfile()
+        let warnings = profile.validate(session)
+
+        #expect(warnings.contains { $0 is .implausibleCatchAngle })
     }
 }
 ```
@@ -313,8 +505,16 @@ struct EmpowerSyncTests {
 
 ## 9. Implementation Roadmap
 
-### Phase 1: MVP (Month 1-2)
-- [ ] `NKEmpowerParser.swift`: CSV parsing with unit tests
+### Phase 0: CSV SDK Foundation (Week 1-2)
+- [ ] `csv-swift-sdk-main/` package setup (SPM)
+- [ ] `CSVParser.swift`: Generic RFC 4180 parser with unit tests
+- [ ] `CSVProfile` protocol definition
+- [ ] Basic test fixtures (valid/invalid CSV files)
+
+### Phase 1: NK Empower Profile + Integration (Month 1-2)
+- [ ] `NKEmpowerProfile.swift`: 13-metric parser with unit tests
+- [ ] Unit conversion logic (lbs→N, rad→deg)
+- [ ] Validation rules (angles, temporal monotonicity)
 - [ ] `SessionDocument` extension: Empower data storage
 - [ ] Basic `SyncEngine` integration: GPS-based alignment
 - [ ] Simple table widget: Display stroke metrics
@@ -389,10 +589,11 @@ struct EmpowerSyncTests {
 
 ---
 
-*Document Version: 2.0.0*
+*Document Version: 3.0.0*
 *Date: 2026-03-01*
 *Last Updated By: Claude Sonnet 4.5*
 
 **Revision History:**
 - v1.0.0 (2026-02-28): Initial proposal
 - v2.0.0 (2026-03-01): Added CSV format details, ANT+ feasibility analysis, Peach PowerLine comparison, comprehensive implementation roadmap, testing strategy, validation metrics, and risk assessment
+- v3.0.0 (2026-03-01): **ARCHITECTURE CHANGE** - Replaced specific `NKEmpowerParser` with generic `csv-swift-sdk-main` module using profile pattern (inspired by FIT SDK). Supports multiple vendors (NK Empower, Garmin, Peach) with single parser + vendor-specific profiles. Updated code examples, testing strategy, and roadmap to reflect modular architecture.

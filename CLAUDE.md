@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**RowData Studio** (RDS) is a native Apple rowing performance analysis tool for macOS, iPadOS, and iOS. It integrates multi-camera video, high-frequency GoPro GPMF telemetry (IMU 200Hz, GPS 10-18Hz), and biometric FIT data (NK SpeedCoach, Garmin, Apple Watch) in a unified reactive analysis environment with an infinite canvas interface ("Rowing Desk"). All processing happens on-device with no backend dependencies.
+**RowData Studio** (RDS) is a native Apple rowing performance analysis tool for macOS, iPadOS, and iOS. It integrates multi-camera video, high-frequency GoPro GPMF telemetry (IMU 200Hz, GPS 10-18Hz), biometric FIT data (NK SpeedCoach, Garmin, Apple Watch), and biomechanical force/angle data (NK Empower Oarlock CSV) in a unified reactive analysis environment with an infinite canvas interface ("Rowing Desk"). All processing happens on-device with no backend dependencies.
 
 **Project Status:** Early development phase. Core Swift SDKs completed (GPMF parser, FIT parser). Application architecture defined (see `docs/`). Implementation in progress.
 
@@ -76,11 +76,13 @@ Canvas { context, size in
 
 **SessionDocument (Codable):**
 - **metadata**: id, title, date, athletes, notes
-- **sources**: DataSource[] (GoPro MP4, FIT files, sidecar telemetry)
+- **sources**: DataSource[] (GoPro MP4, FIT files, sidecar telemetry, NK Empower CSV)
 - **timeline**: duration, trimRange, tracks[] with temporal offsets
 - **regions**: ROI[] (marked regions of interest)
 - **canvas**: CanvasState (widget positions, layouts)
 - **syncState**: Sync results from fusion engine
+- **empowerData**: NKEmpowerSession? (optional, 13 biomechanical metrics per-stroke)
+- **empowerSyncOffset**: TimeInterval? (GPS-based alignment with video)
 
 **TelemetrySidecar (compressed JSON/MessagePack):**
 - Generated during video triage (physical trim)
@@ -156,7 +158,16 @@ RowDataStudio/                      # Root
 │   └── RowData_Vision_4_0_Proposal.md
 ├── modules/                        # Swift Package modules
 │   ├── gpmf-swift-sdk-main/        # COMPLETED: GoPro GPMF parser (222 tests)
-│   └── fit-swift-sdk-main/         # COMPLETED: FIT file parser
+│   ├── fit-swift-sdk-main/         # COMPLETED: FIT file parser
+│   └── csv-swift-sdk-main/         # TO CREATE: Generic CSV parser + profiles (NK Empower, Garmin, Peach, etc.)
+│       ├── Sources/CSVSwiftSDK/
+│       │   ├── CSVParser.swift     # Generic RFC 4180 CSV parser
+│       │   └── Profiles/           # Vendor-specific parsers
+│       │       ├── NKEmpowerProfile.swift
+│       │       ├── NKSpeedCoachProfile.swift
+│       │       ├── GarminProfile.swift
+│       │       └── PeachPowerLineProfile.swift
+│       └── Tests/
 ├── app/                            # Main application (TO CREATE)
 │   ├── Core/
 │   │   ├── Models/                 # SessionDocument, DataSource, ROI
@@ -257,7 +268,10 @@ Pattern: `[FAMILY]_[SOURCE]_[TYPE]_[NAME]_[MODIFIER]`
 - `imu_raw_ts_acc_surge` - Raw IMU surge acceleration (time-series)
 - `gps_gpmf_ts_speed` - GPS speed from GoPro GPMF
 - `fus_cal_ts_vel_inertial` - Fused inertial velocity (IMU + GPS complementary filter)
-- `mech_fus_str_rate` - Stroke rate (per-stroke metric)
+- `mech_fus_str_rate` - Stroke rate (per-stroke metric from FusionEngine)
+- `mech_ext_str_force_peak` - Peak oarlock force (per-stroke from NK Empower CSV)
+- `mech_ext_str_angle_catch` - Catch angle in degrees (NK Empower CSV)
+- `mech_ext_str_work` - Work per stroke in Joules (NK Empower CSV)
 
 ### File Output Nomenclature
 
@@ -323,8 +337,11 @@ When removing or superseding files:
 
 - **Sport:** Competitive rowing (sweep, sculling)
 - **Users:** Elite athletes, coaches, data engineers
-- **Hardware:** GoPro HERO10+ (GPMF format), NK SpeedCoach GPS 2, Garmin devices, Apple Watch
-- **Data Rates:** 200Hz IMU (ACCL/GYRO), 10-18Hz GPS, 1Hz FIT metrics
+- **Hardware:**
+  - **Video/IMU/GPS:** GoPro HERO10+ (GPMF format @ 200Hz IMU, 10-18Hz GPS)
+  - **Biometric:** NK SpeedCoach GPS 2, Garmin devices, Apple Watch (FIT format @ 1Hz)
+  - **Biomechanical:** NK Empower Oarlock (CSV export, 13 per-stroke metrics @ 50Hz sampling)
+- **Data Rates:** 200Hz IMU (ACCL/GYRO), 10-18Hz GPS, 1Hz FIT metrics, per-stroke Empower (LF)
 - **Temporal Scales:** HF (200Hz), MF (1Hz), LF (per-stroke ~0.3-0.5 Hz)
 - **Privacy:** All processing on-device, no cloud uploads
 - **Storage:** SQLite for session metadata, DuckDB for OLAP analytics (planned)
@@ -370,6 +387,8 @@ Priority functions to port:
 | `app/UI/RowingDeskCanvas.swift`         | Infinite canvas UI |
 | `modules/gpmf-swift-sdk-main/`          | GoPro GPMF parser |
 | `modules/fit-swift-sdk-main/`           | FIT file parser |
+| `modules/csv-swift-sdk-main/`           | Generic CSV parser + vendor profiles |
+| `modules/csv-swift-sdk-main/Profiles/NKEmpowerProfile.swift` | NK Empower 13 biomechanical metrics |
 
 ## Important Notes
 
@@ -378,6 +397,11 @@ Priority functions to port:
 - **Video constraints:** AVFoundation Passthrough export does NOT preserve GPMF track (validated experimentally). Always generate sidecar during trim.
 - **Multi-camera sync:** GPS back-computation provides ~1-5s precision (sufficient for rowing, not film production)
 - **FIT timestamp reliability:** Garmin devices sync to NTP/GPS (medium-high reliability). NK SpeedCoach reliability varies.
+- **NK Empower constraints:**
+  - FIT files from SpeedCoach **DO NOT** contain Empower Oarlock data
+  - CSV export from NK LiNK Logbook is the **only** source for force/angle metrics
+  - 13 per-stroke metrics: catch/finish angles, slip, wash, force (peak/avg), power (peak/avg), work, stroke/effective length
+  - Sync via GPS track correlation (same strategy as FIT ↔ GPMF alignment)
 
 ---
 
@@ -385,3 +409,4 @@ Priority functions to port:
 - `docs/RowDataStudio_Kickoff_Report_v1.md` - Full architecture, sync algorithms, data models
 - `docs/Visualization_Architecture_Proposal.md` - SwiftUI Canvas architecture, transform pipelines
 - `docs/RowData_Vision_4_0_Proposal.md` - Strategic vision, roadmap, business model
+- `docs/Empower_Oarlock_Integration_Proposal.md` - NK Empower CSV integration, parser implementation, biomechanical widgets
