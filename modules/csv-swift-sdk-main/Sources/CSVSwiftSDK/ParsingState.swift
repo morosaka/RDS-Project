@@ -1,0 +1,117 @@
+// Sources/CSVSwiftSDK/ParsingState.swift v1.0.0
+/**
+ * Generic CSV parsing utility.
+ * --- Revision History ---
+ * v1.0.0 - 2026-03-01 - Initial standardization.
+ */
+//
+//  ParsingState.swift
+//  SwiftCSV
+//
+//  Created by Christian Tietze on 25/10/16.
+//  Copyright © 2016 Naoto Kaneko. All rights reserved.
+//
+
+public enum CSVParseError: Error {
+    case generic(message: String)
+    case quotation(message: String)
+}
+
+/// State machine of parsing CSV contents character by character.
+struct ParsingState {
+
+    private(set) var atStart = true
+    private(set) var parsingField = false
+    private(set) var parsingQuotes = false
+    private(set) var innerQuotes = false
+
+    let delimiter: Character
+    let finishRow: () throws -> Void
+    let appendChar: (Character) throws -> Void
+    let finishField: () throws -> Void
+
+    init(delimiter: Character,
+         finishRow: @escaping () throws -> Void,
+         appendChar: @escaping (Character) throws -> Void,
+         finishField: @escaping () throws -> Void) {
+
+        self.delimiter = delimiter
+        self.finishRow = finishRow
+        self.appendChar = appendChar
+        self.finishField = finishField
+    }
+
+    /// - Throws: `CSVParseError`
+    mutating func change(_ char: Character) throws {
+        if atStart {
+            if char == "\"" {
+                atStart = false
+                parsingQuotes = true
+            } else if char == delimiter {
+                try finishField()
+            } else if char.isNewline {
+                try finishRow()
+            } else if char.isWhitespace {
+              // ignore whitespaces between fields
+            } else {
+                parsingField = true
+                atStart = false
+                try appendChar(char)
+            }
+        } else if parsingField {
+            if innerQuotes {
+                if char == "\"" {
+                    try appendChar(char)
+                    innerQuotes = false
+                } else {
+                    throw CSVParseError.quotation(message: "Can't have non-quote here: \(char)")
+                }
+            } else {
+                if char == "\"" {
+                    innerQuotes = true
+                } else if char == delimiter {
+                    atStart = true
+                    parsingField = false
+                    innerQuotes = false
+                    try finishField()
+                } else if char.isNewline {
+                    atStart = true
+                    parsingField = false
+                    innerQuotes = false
+                    try finishRow()
+                } else {
+                    try appendChar(char)
+                }
+            }
+        } else if parsingQuotes {
+            if innerQuotes {
+                if char == "\"" {
+                    try appendChar(char)
+                    innerQuotes = false
+                } else if char == delimiter {
+                    atStart = true
+                    parsingField = false
+                    innerQuotes = false
+                    try finishField()
+                } else if char.isNewline {
+                    atStart = true
+                    parsingQuotes = false
+                    innerQuotes = false
+                    try finishRow()
+                } else if char.isWhitespace {
+                  // ignore whitespaces between fields
+                } else {
+                    throw CSVParseError.quotation(message: "Can't have non-quote here: \(char)")
+                }
+            } else {
+                if char == "\"" {
+                    innerQuotes = true
+                } else {
+                    try appendChar(char)
+                }
+            }
+        } else {
+            throw CSVParseError.generic(message: "me_irl")
+        }
+    }
+}
