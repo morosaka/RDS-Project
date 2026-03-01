@@ -1,0 +1,389 @@
+Piano di Lavoro: RowData Studio Application Layer
+Context
+RowData Studio ha 3 SDK completi (GPMF 222 test, FIT 248 test, CSV 20 test) e un'infrastruttura documentale matura (specs, modelli dati, pipeline sync/fusion). Non esiste ancora codice applicativo: nessun Xcode project, nessun app/ directory, nessun root Package.swift. Questo piano definisce come costruire l'intera app layer, dalla struttura progetto fino alla UI completa, in fasi incrementali e testabili.
+
+Decisioni architetturali confermate:
+
+Struttura: Xcode project con local SPM dependencies ai 3 moduli SDK
+Persistenza MVP: JSON files (GRDB differito a Phase 5)
+Piattaforma: macOS first (iOS/iPadOS aggiunto successivamente)
+Phase 0: Project Scaffold (S)
+Goal: Xcode project compilante che importa tutti e 3 gli SDK.
+
+Files da creare
+
+RowDataStudioApp/
+├── App.swift                          # @main SwiftUI entry point
+├── ContentView.swift                  # Placeholder root view
+└── Resources/
+    ├── Assets.xcassets/               # App icon placeholder
+    └── Info.plist                     # v0.1.0
+
+RowDataStudioTests/
+└── SmokeTests.swift                   # Verify SDK imports compile
+Decisioni
+Deployment target: macOS 13+ (allineato a GPMF SDK minimum)
+Swift language mode: v6
+3 local SPM packages via Xcode "Add Package Dependencies > Add Local": modules/gpmf-swift-sdk-main, modules/fit-swift-sdk-main, modules/csv-swift-sdk-main
+Test framework: Swift Testing (@Test, #expect)
+Verifica
+xcodebuild -scheme RowDataStudio -destination 'platform=macOS' build compila senza errori
+Smoke test importa tutti e 3 gli SDK e istanzia tipi base
+Phase 1: Data Models (M)
+Goal: Definire tutti i tipi core da cui dipende il resto della app.
+
+Dipende da: Phase 0
+
+Files da creare
+
+RowDataStudioApp/Core/Models/
+├── SessionDocument.swift              # Central session container (Codable, Sendable)
+├── DataSource.swift                   # Enum: goProVideo, sidecar, fitFile, csvFile
+├── TrackReference.swift               # Timeline track references con offset
+├── ROI.swift                          # Regions of interest
+├── CanvasState.swift                  # Widget positions & layouts
+├── SyncResult.swift                   # Sync output (offset, confidence, diagnostics)
+├── SensorDataBuffers.swift            # SoA 40+ channels (ContiguousArray<Float>)
+├── StrokeEvent.swift                  # Stroke detection output
+├── PerStrokeStat.swift                # Per-stroke aggregation
+├── FusionResult.swift                 # Fusion engine output container
+├── FusionDiagnostics.swift            # Tilt bias, lag, confidence
+├── MetricDef.swift                    # Metric definition registry
+└── TelemetrySidecar.swift             # Compact GPMF extraction cache
+
+RowDataStudioTests/Core/Models/
+├── SessionDocumentTests.swift         # Codable roundtrip, equality
+├── SensorDataBuffersTests.swift       # SoA construction, NaN handling
+├── StrokeEventTests.swift             # Validation
+└── TelemetrySidecarTests.swift        # Codable roundtrip
+Specifiche di riferimento
+docs/architecture/data-models.md — SessionDocument tree, SoA layout, MetricDef
+docs/specs/fusion-engine.md — StrokeEvent, PerStrokeStat, FusionResult structs
+Scelte chiave
+SensorDataBuffers: final class (reference semantics per condivisione tra widget). @unchecked Sendable con accesso confinato a un singolo task.
+NaN sentinel: valore mancante = Float.nan (GPS non sincronizzato, HR non disponibile). vDSP propaga NaN nativamente.
+Iniziare con ~15 canali necessari per MVP, espandere incrementalmente.
+Verifica
+Tutti i tipi Codable superano encode→JSON→decode roundtrip
+SensorDataBuffers gestisce correttamente canali NaN e accesso dinamico
+~10-15 test
+Phase 2: Signal Processing Library (L)
+Goal: Port completo di mathUtils.ts (RDL) in Swift usando Accelerate/vDSP.
+
+Dipende da: Phase 1 (tipo SensorDataBuffers per integration test)
+
+Files da creare
+
+RowDataStudioApp/SignalProcessing/
+├── DSP.swift                          # Namespace + shared utilities
+├── GaussianSmooth.swift               # vDSP.convolve con kernel Gaussiano
+├── SavitzkyGolay.swift                # Filtro polinomiale
+├── SimpleMovingAverage.swift          # Media mobile semplice
+├── ExponentialMovingAverage.swift     # EMA con decay
+├── ZeroPhaseSmooth.swift              # Forward + backward pass
+├── Detrend.swift                      # Sottrazione media mobile (baseline removal)
+├── Integrate.swift                    # Integrazione trapezoidale cumulativa
+├── Derivative.swift                   # Differenza finita
+├── CrossCorrelation.swift             # Cross-correlazione normalizzata (vDSP)
+├── StrokeDetection.swift              # State machine su velocità detrendizzata
+├── Statistics.swift                   # mean, median, stddev, quantile (P5/P95)
+├── Search.swift                       # binarySearchFloor, interpolateAt, getNearestValue
+└── LTTB.swift                         # Largest Triangle Three Buckets downsampling
+
+RowDataStudioTests/SignalProcessing/
+├── GaussianSmoothTests.swift
+├── SavitzkyGolayTests.swift
+├── ZeroPhaseSmoothTests.swift
+├── DetrendTests.swift
+├── IntegrateTests.swift
+├── DerivativeTests.swift
+├── CrossCorrelationTests.swift
+├── StrokeDetectionTests.swift
+├── StatisticsTests.swift
+├── SearchTests.swift
+└── LTTBTests.swift
+Specifiche di riferimento
+docs/specs/signal-processing.md — Tabella funzioni RDL → Swift/Accelerate mapping
+docs/specs/fusion-engine.md §Stroke Detection — State machine algorithm
+Note implementative
+Input/Output: ContiguousArray<Float> (matching SoA buffer type)
+Kernel Gaussiano: troncato a 3σ, pre-calcolato
+LTTB: algoritmo Steinarsson, preserva endpoints e feature visive
+StrokeDetection: SEEK_VALLEY → SEEK_PEAK → validate con soglie dinamiche da P95/P05
+CrossCorrelation: Pearson normalizzato su sliding window (usato da SignMatch e GpsSpeedCorrelator)
+NaN: propagato correttamente in tutte le funzioni
+Verifica
+Ogni funzione ha test suite dedicata con known inputs/outputs
+Edge cases: array vuoti, single-element, all-NaN, grandi (100k+)
+Coverage target: >85%
+~40-60 test
+Phase 3: Sync + Fusion Engine (L)
+Goal: Pipeline sync completa (Steps 0-3) e fusion engine (6 steps) con integration test.
+
+Dipende da: Phase 2 (signal processing), Phase 1 (data models)
+
+Files da creare
+
+RowDataStudioApp/Core/Services/
+├── SyncEngine.swift                   # Orchestratore 4-step sync
+├── Sync/
+│   ├── TiltBiasEstimator.swift        # Step 0: stima bias gravitazionale
+│   ├── SignMatchStrategy.swift        # Step 1: allineamento IMU-GPS interno GPMF
+│   ├── GpsSpeedCorrelator.swift       # Step 3A: cross-correlazione speed series
+│   ├── GpsTrackCorrelator.swift       # Step 3B: minimizzazione distanza Haversine
+│   └── SyncConstants.swift            # Costanti calibrate (NON modificare senza approvazione)
+├── FusionEngine.swift                 # Orchestratore 6-step fusion
+├── Fusion/
+│   ├── ComplementaryFilter.swift      # α=0.999 IMU-GPS filter
+│   ├── StrokeAggregator.swift         # Aggregazione per-stroke
+│   └── FusionConstants.swift          # Costanti calibrate
+├── SDKAdapters/
+│   ├── GPMFAdapter.swift              # async wrapper, TelemetryData → SoA conversion
+│   ├── FITAdapter.swift               # async wrapper, FitMessages → time series
+│   └── CSVAdapter.swift               # async wrapper, CSV sessions → SoA integration
+└── Haversine.swift                    # Distanza GPS
+
+RowDataStudioTests/Core/Services/
+├── TiltBiasEstimatorTests.swift
+├── SignMatchStrategyTests.swift
+├── GpsSpeedCorrelatorTests.swift
+├── GpsTrackCorrelatorTests.swift
+├── ComplementaryFilterTests.swift
+├── StrokeAggregatorTests.swift
+├── FusionEngineTests.swift            # Integration con dati sintetici
+├── SyncEngineTests.swift              # Integration
+├── GPMFAdapterTests.swift
+├── FITAdapterTests.swift
+└── HaversineTests.swift
+Specifiche di riferimento
+docs/specs/sync-pipeline.md — Costanti calibrate (tutte nella tabella), algoritmi step-by-step
+docs/specs/fusion-engine.md — 6-step pipeline, complementary filter, stroke detection
+Costanti critiche (da SyncConstants.swift)
+Costante	Valore	Fonte
+RESAMPLE_STEP_MS	20	sync-pipeline.md §Step 1
+SEARCH_WINDOW_MS	±20000	sync-pipeline.md §Step 1
+MAX_LAG_MS	±2500	sync-pipeline.md §Step 1
+SCORE_THRESHOLD	0.15	sync-pipeline.md §Step 1
+GPS_SMOOTH_SIGMA	8.0	sync-pipeline.md §Step 1
+SLOPE_THRESHOLD	0.02	sync-pipeline.md §Step 1
+COMPLEMENTARY_ALPHA	0.999	fusion-engine.md §Step 4
+GAUSSIAN_SIGMA	4.0	fusion-engine.md §Step 3
+ZERO_PHASE_WINDOW	15	fusion-engine.md §Step 5
+BASELINE_WINDOW_S	6.0	fusion-engine.md §Step 5
+SDK Adapters — layer ponte critico
+GPMFAdapter: TelemetryData (AoS Double) → SensorDataBuffers (SoA Float). Wrappa GPMFExtractor.extract() in async.
+FITAdapter: FitMessages.recordMesgs → time series. Conversione semicircles→degrees (× 180.0 / 2^31), Garmin epoch offset (631065600s).
+CSVAdapter: NKEmpowerSession, NKSpeedCoachSession → canali SoA per-stroke.
+Verifica
+Unit test per ogni strategia sync con dati sintetici
+ComplementaryFilter: step input → convergenza attesa
+Integration: pipeline completa con dati realistici, stroke count fisiologicamente plausibile
+Coverage target: >90%
+~30-40 test
+Phase 4: Rendering + MVP (L) — MILESTONE MVP
+Goal: Transform pipeline, line chart widget, PlayheadController. App minima che carica un GoPro MP4 + opzionale FIT, esegue fusion, visualizza il risultato.
+
+Dipende da: Phase 3 (FusionEngine produce dati), Phase 2 (LTTB)
+
+Files da creare
+
+RowDataStudioApp/Rendering/
+├── Transforms/
+│   ├── TransformPipeline.swift        # Composable transform chain
+│   ├── TransformStage.swift           # Protocol
+│   ├── ViewportCull.swift             # Time range filtering
+│   ├── LTTBTransform.swift            # LTTB stage (usa SignalProcessing/LTTB)
+│   └── AdaptiveSmooth.swift           # Zoom-dependent smoothing selection
+├── PlayheadController.swift           # CVDisplayLink (macOS), @Observable, 60fps
+├── DataContext.swift                  # Shared data reference per widgets
+└── Widgets/
+    └── LineChartWidget.swift          # SwiftUI Canvas + .drawingGroup()
+
+RowDataStudioApp/UI/
+├── MVPView.swift                      # File picker + chart + playhead
+└── FileImportHelper.swift             # Open GoPro MP4 + FIT
+
+RowDataStudioTests/Rendering/
+├── TransformPipelineTests.swift
+├── ViewportCullTests.swift
+├── LTTBTransformTests.swift
+├── AdaptiveSmoothTests.swift
+└── PlayheadControllerTests.swift
+MVP User Flow
+Utente apre GoPro MP4 via fileImporter
+(Opzionale) Aggiunge file FIT
+Preme "Process" → pipeline completa: GPMF extract → FIT parse → sync → fusion
+LineChartWidget mostra fused velocity (fus_cal_ts_vel_inertial)
+Play/Pause + scrub timeline → PlayheadController aggiorna cursore verticale su chart
+Note implementative
+PlayheadController: CVDisplayLink su macOS (non CADisplayLink). @Observable per reattività automatica.
+LineChartWidget: SwiftUI Canvas + .drawingGroup() → Metal automatico. Pipeline: ViewportCull → LTTB(2000pt) → AdaptiveSmooth → render path.
+MVPView: UI temporanea, sarà sostituita da RowingDeskCanvas in Phase 6.
+Verifica
+TransformPipeline: composizione stage, input vuoto
+ViewportCull: solo dati nel range sopravvivono
+LTTB: lunghezza output = target, endpoints preservati
+Test manuale: caricare un file GoPro reale, verificare che il chart renderizza e lo scrub è fluido a 60fps
+~15-20 test
+Cosa valida questo MVP
+Se funziona, la intera architettura è validata end-to-end:
+
+SDK integration (GPMF + FIT parsing)
+Signal processing (Gaussian, cross-correlation, LTTB)
+Sync pipeline (Steps 0-3)
+Fusion engine (complementary filter, stroke detection)
+SoA buffer system
+Transform pipeline (cull + downsample + smooth)
+SwiftUI Canvas rendering a 60fps con 200Hz data
+PlayheadController reattivo
+Phase 5: Session Management (M)
+Goal: Persistenza sessioni, import workflow, listing.
+
+Dipende da: Phase 4 (MVP funzionante)
+
+Files da creare
+
+RowDataStudioApp/Core/Persistence/
+├── SessionStore.swift                 # JSON file-based CRUD
+├── SidecarGenerator.swift             # Estrae telemetry sidecar da video
+└── FileImporter.swift                 # Detect file type → parse → create session
+
+RowDataStudioApp/UI/
+├── SessionListView.swift              # Lista sessioni salvate
+├── SessionDetailView.swift            # Metadata + data sources
+├── ImportView.swift                   # Drag-and-drop import
+└── SessionRow.swift                   # List row component
+
+RowDataStudioTests/Core/Persistence/
+├── SessionStoreTests.swift            # Save/load roundtrip
+├── SidecarGeneratorTests.swift
+└── FileImporterTests.swift
+Note
+SessionStore: legge/scrive SessionDocument come .json in ~/Library/Application Support/RowDataStudio/sessions/
+SidecarGenerator: usa GPMFExtractor, serializza come gzipped JSON. Naming: GX030230_trim_120s_385s.telemetry
+GRDB non ancora — sarà aggiunto quando servono query multi-sessione, search, indici (Phase futura post-8)
+Verifica
+SessionStore: create → load → verify equality
+FileImporter: detect MP4 vs FIT vs CSV correttamente
+~10-15 test
+Phase 6: Full Canvas + Widgets (L)
+Goal: RowingDeskCanvas (infinite canvas) e widget set iniziale.
+
+Dipende da: Phase 4 (rendering infrastructure)
+Parallelizzabile con: Phase 5
+
+Files da creare
+
+RowDataStudioApp/UI/
+├── RowingDeskCanvas.swift             # Infinite canvas con pan/zoom
+├── WidgetContainer.swift              # Frame draggable/resizable
+├── WidgetPalette.swift                # Widget picker
+└── Inspector/
+    ├── InspectorView.swift            # Widget configuration panel
+    └── MetricPicker.swift             # Selettore metrica
+
+RowDataStudioApp/Rendering/Widgets/
+├── WidgetProtocol.swift               # Protocol AnalysisWidget
+├── LineChartWidget.swift              # (Enhanced da Phase 4)
+├── MultiLineChartWidget.swift         # Overlay metriche multiple
+├── StrokeTableWidget.swift            # Tabella per-stroke virtualizzata
+├── MetricCardWidget.swift             # KPI singolo
+├── MapWidget.swift                    # GPS track su MapKit
+└── EmpowerRadarWidget.swift           # Radar biomeccanico (NK Empower)
+
+RowDataStudioTests/Rendering/Widgets/
+├── WidgetProtocolTests.swift
+├── MultiLineChartWidgetTests.swift
+└── StrokeTableWidgetTests.swift
+Verifica
+RowingDeskCanvas: pan/zoom fluido, widget positioning stabile
+Widget data flow: ogni widget riceve dati dal DataContext e reagisce al PlayheadController
+~10-15 test
+Phase 7: Video Integration (L)
+Goal: Video playback sincronizzato con playhead.
+
+Dipende da: Phase 6 (canvas), Phase 4 (PlayheadController)
+
+Files da creare
+
+RowDataStudioApp/Rendering/Widgets/
+└── VideoWidget.swift                  # AVPlayer nel canvas
+
+RowDataStudioApp/Core/Services/
+└── VideoSyncController.swift          # AVPlayer ↔ PlayheadController sync bidirezionale
+
+RowDataStudioApp/UI/
+├── VideoPlayer/
+│   ├── VideoPlayerView.swift          # AVKit in SwiftUI
+│   └── VideoTrimView.swift            # Trim interface visuale
+└── Timeline/
+    ├── TimelineView.swift             # Timeline multi-track
+    ├── TimelineTrack.swift            # Track individuale
+    └── TimelineRuler.swift            # Ruler temporale
+Note
+Sync bidirezionale: video play → playhead segue; timeline scrub → video seek
+Multi-camera: due VideoWidget con offset diversi, stesso PlayheadController
+addPeriodicTimeObserver a 1/60s
+Phase 8: Polish + Export (M)
+Goal: ROI, export, multi-camera, widget rimanenti.
+
+Dipende da: Phase 7
+
+Files da creare
+
+RowDataStudioApp/UI/
+├── ROIEditor.swift                    # Marking regioni di interesse
+└── ExportView.swift                   # Export options
+
+RowDataStudioApp/Core/Services/
+├── ExportService.swift                # CSV, PDF, GPX export
+├── MultiCameraSync.swift              # GPS back-computation per allineamento camere
+└── MetricComparison.swift             # Confronto metriche tra ROI
+
+RowDataStudioApp/Rendering/Widgets/
+├── BarChartWidget.swift               # Per-stroke bar chart
+├── ScatterPlotWidget.swift            # Scatter correlazione metriche
+├── HistogramWidget.swift              # Distribuzione
+└── ComparisonWidget.swift             # Overlay ROI o sessioni
+Grafo delle dipendenze
+
+Phase 0 (Scaffold)
+    │
+Phase 1 (Data Models)
+    │
+    ├──→ Phase 2 (Signal Processing) ──┐
+    │                                   │
+    └───────────────────────────────────┘
+                    │
+              Phase 3 (Sync + Fusion)
+                    │
+              Phase 4 (Rendering + MVP)  ★ MVP MILESTONE
+                    │
+              ┌─────┴─────┐
+              │           │
+        Phase 5      Phase 6        ← parallelizzabili
+     (Sessions)     (Canvas)
+              │           │
+              └─────┬─────┘
+                    │
+              Phase 7 (Video)
+                    │
+              Phase 8 (Polish)
+Stima test totali
+Phase	Test stimati	Coverage target
+0	1	Smoke
+1	10-15	Codable roundtrip
+2	40-60	>85% signal processing
+3	30-40	>90% sync/fusion
+4	15-20	Transform pipeline
+5	10-15	Persistence
+6-8	20-30	Widget data, export
+Totale	~130-180	
+Rischi e mitigazioni
+Rischio	Impatto	Mitigazione
+CVDisplayLink complexity su macOS	Medio	Platform-conditional in Phase 4. Test macOS first.
+FIT SDK class-based, non Sendable	Medio	FITAdapter wrappa accesso in actor dedicato
+SwiftUI Canvas performance con 10+ widget	Alto	Phase 4 testa esattamente questo. LTTB→2000 punti. .drawingGroup() come escape hatch.
+40+ canali SoA unwieldy	Basso	Iniziare con ~15 canali per MVP, espandere incrementalmente
+Prossimo passo
+Iniziare con Phase 0: creare loXcode project, configurare le dipendenze SPM locali, e verificare che compili con tutti e 3 gli SDK importati.
