@@ -12,6 +12,7 @@ Generic CSV parsing library for RowData Studio, with specialized profiles for ro
   - **NK SpeedCoach** (planned)
   - **Garmin Connect** (planned)
   - **Peach PowerLine** (planned)
+  - **CrewNerd** (planned)
 
 ## Integration with RowData Studio
 
