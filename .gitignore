@@ -1,6 +1,87 @@
-/.DS_Store
+# ──────────────────────────────────────────────
+# RowData Studio .gitignore
+# ──────────────────────────────────────────────
+
+# ── macOS ─────────────────────────────────────
+.DS_Store
+**/.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Xcode ─────────────────────────────────────
+## Build artifacts
+**/DerivedData/
+**/build/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+
+## Index / logs
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Xcode playground
+timeline.xctimeline
+playground.xcworkspace
+
+# ── Swift Package Manager ─────────────────────
+.build/
+.swiftpm/
+Package.resolved
+**/Package.resolved
+
+# ── Testing ───────────────────────────────────
+## Large test data (GoPro MP4, raw session folders)
 modules/gpmf-swift-sdk-main/Tests/GPMFSwiftSDKTests/TestData/20251201 max
 modules/gpmf-swift-sdk-main/Tests/GPMFSwiftSDKTests/TestData/20251211 mau
 modules/gpmf-swift-sdk-main/Tests/GPMFSwiftSDKTests/TestData/GX040246.MP4
-modules/gpmf-swift-sdk-main/.build
-modules/gpmf-swift-sdk-main/.claude
+
+## Code coverage
+*.xcresult
+codecov/
+lcov.info
+
+# ── Claude Code / AI agents ──────────────────
+.claude/
+!/.claude/
+!/.claude/**
+
+# ── IDE & Editors ─────────────────────────────
+## VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+## JetBrains (AppCode)
+.idea/
+
+## Vim / Emacs
+*~
+*.swp
+*.swo
+\#*\#
+.#*
+
+# ── Environment & Secrets ────────────────────
+.env
+.env.*
+*.pem
+*.p12
+*.key
+*.mobileprovision
+*.provisionprofile
+
+# ── Archives & Exports ───────────────────────
+*.ipa
+*.xcarchive
+*.app.dSYM.zip
+
+# ── Miscellaneous ────────────────────────────
+*.log
+Thumbs.db
