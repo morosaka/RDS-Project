@@ -1,69 +1,77 @@
-// Tests/CSVSwiftSDKTests/NewlineTests.swift v1.0.0
+// Tests/CSVSwiftSDKTests/NewlineTests.swift v1.1.0
 /**
- * Generic CSV parsing utility.
+ * Newline handling tests using Swift Testing framework.
  * --- Revision History ---
  * v1.0.0 - 2026-03-01 - Initial standardization.
+ * v1.1.0 - 2026-03-01 - REFACTOR: Migrated to Swift Testing framework.
  */
-//
-//  NewlineTests.swift
-//  SwiftCSV
-//
-//  Created by Christian Tietze on 05/12/16.
-//  Copyright © 2016 Naoto Kaneko. All rights reserved.
-//
 
-import XCTest
+import Testing
 @testable import CSVSwiftSDK
 
-class NewlineTests: XCTestCase {
-    func testInit_withCR() throws {
+@Suite("Newline Handling")
+struct NewlineTests {
+
+    @Test("Parse CSV with CR newlines")
+    func parseWithCR() throws {
         let csv = try CSV<Named>(string: "id,name,age\r1,Alice,18\r2,Bob,19\r3,Charlie,20")
-        XCTAssertEqual(csv.header, ["id", "name", "age"])
+        #expect(csv.header == ["id", "name", "age"])
+
         let expectedRows = [
             ["id": "1", "name": "Alice", "age": "18"],
             ["id": "2", "name": "Bob", "age": "19"],
             ["id": "3", "name": "Charlie", "age": "20"]
         ]
+
         for (index, row) in csv.rows.enumerated() {
-            XCTAssertEqual(expectedRows[index], row)
+            #expect(expectedRows[index] == row)
         }
     }
 
-    func testInit_withLF() throws {
+    @Test("Parse CSV with LF newlines")
+    func parseWithLF() throws {
         let csv = try CSV<Named>(string: "id,name,age\n1,Alice,18\n2,Bob,19\n3,Charlie,20")
-        XCTAssertEqual(csv.header, ["id", "name", "age"])
+        #expect(csv.header == ["id", "name", "age"])
+
         let expectedRows = [
             ["id": "1", "name": "Alice", "age": "18"],
             ["id": "2", "name": "Bob", "age": "19"],
             ["id": "3", "name": "Charlie", "age": "20"]
         ]
+
         for (index, row) in csv.rows.enumerated() {
-            XCTAssertEqual(expectedRows[index], row)
+            #expect(expectedRows[index] == row)
         }
     }
 
-    func testInit_withCRLF() throws {
+    @Test("Parse CSV with CRLF newlines")
+    func parseWithCRLF() throws {
         let csv = try CSV<Named>(string: "id,name,age\r\n1,Alice,18\r\n2,Bob,19\r\n3,Charlie,20")
-        XCTAssertEqual(csv.header, ["id", "name", "age"])
+        #expect(csv.header == ["id", "name", "age"])
+
         let expectedRows = [
             ["id": "1", "name": "Alice", "age": "18"],
             ["id": "2", "name": "Bob", "age": "19"],
             ["id": "3", "name": "Charlie", "age": "20"]
         ]
+
         for (index, row) in csv.rows.enumerated() {
-            XCTAssertEqual(expectedRows[index], row)
+            #expect(expectedRows[index] == row)
         }
     }
 
-    func testInit_whenThereIsExtraCarriageReturnAtTheEnd() throws {
+    @Test("Handle extra carriage return at end")
+    func extraCarriageReturnAtEnd() throws {
         let csv = try CSV<Named>(string: "id,name,age\n1,Alice,18\n2,Bob,19\n3,Charlie\r\n")
+
         let expected = [
             ["id": "1", "name": "Alice", "age": "18"],
             ["id": "2", "name": "Bob", "age": "19"],
             ["id": "3", "name": "Charlie", "age": ""]
         ]
+
         for (index, row) in csv.rows.enumerated() {
-            XCTAssertEqual(expected[index], row)
+            #expect(expected[index] == row)
         }
     }
 }

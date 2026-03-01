@@ -1,32 +1,30 @@
-// Tests/CSVSwiftSDKTests/CSVDelimiterTests.swift v1.0.0
+// Tests/CSVSwiftSDKTests/CSVDelimiterTests.swift v1.1.0
 /**
- * Generic CSV parsing utility.
+ * CSV Delimiter tests using Swift Testing framework.
  * --- Revision History ---
  * v1.0.0 - 2026-03-01 - Initial standardization.
+ * v1.1.0 - 2026-03-01 - REFACTOR: Migrated to Swift Testing framework.
  */
-//
-//  CSVDelimiterTests.swift
-//  SwiftCSV
-//
-//  Created by Christian Tietze on 21.12.21.
-//  Copyright © 2021 SwiftCSV. All rights reserved.
-//
 
-import XCTest
+import Testing
 @testable import CSVSwiftSDK
 
-class CSVDelimiterTests: XCTestCase {
-    func testRawValue() {
-        XCTAssertEqual(CSVDelimiter.comma.rawValue, ",")
-        XCTAssertEqual(CSVDelimiter.semicolon.rawValue, ";")
-        XCTAssertEqual(CSVDelimiter.tab.rawValue, "\t")
-        XCTAssertEqual(CSVDelimiter.character("x").rawValue, "x")
+@Suite("CSV Delimiter")
+struct CSVDelimiterTests {
+
+    @Test("Raw value extraction")
+    func rawValue() {
+        #expect(CSVDelimiter.comma.rawValue == ",")
+        #expect(CSVDelimiter.semicolon.rawValue == ";")
+        #expect(CSVDelimiter.tab.rawValue == "\t")
+        #expect(CSVDelimiter.character("x").rawValue == "x")
     }
 
-    func testLiteralInitializer() {
-        XCTAssertEqual(CSVDelimiter.comma, ",")
-        XCTAssertEqual(CSVDelimiter.semicolon, ";")
-        XCTAssertEqual(CSVDelimiter.tab, "\t")
-        XCTAssertEqual(CSVDelimiter.character("x"), "x")
+    @Test("Literal initializer")
+    func literalInitializer() {
+        #expect(CSVDelimiter.comma == ",")
+        #expect(CSVDelimiter.semicolon == ";")
+        #expect(CSVDelimiter.tab == "\t")
+        #expect(CSVDelimiter.character("x") == "x")
     }
 }

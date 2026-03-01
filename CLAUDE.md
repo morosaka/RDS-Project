@@ -23,6 +23,75 @@ swift test --filter GPMFTests  # Run specific test suite
 
 **Documentation:** See `docs/RowDataStudio_Kickoff_Report_v1.md` for complete technical specifications.
 
+## Development Environment
+
+### Xcode Configuration (CRITICAL)
+
+**This project uses a non-standard Xcode installation on an external volume.**
+
+**Xcode Location:**
+```
+/Volumes/WDSN770/Applications/Xcode.app
+```
+
+**IMPORTANT:** Before running tests or building from CLI, ensure `xcode-select` points to Xcode (not Command Line Tools):
+
+```bash
+# Check current setting
+xcode-select -p
+
+# If it shows /Library/Developer/CommandLineTools, fix it:
+sudo xcode-select -s /Volumes/WDSN770/Applications/Xcode.app/Contents/Developer
+
+# Verify (should show Xcode path)
+xcode-select -p
+# Expected: /Volumes/WDSN770/Applications/Xcode.app/Contents/Developer
+```
+
+**Why This Matters:**
+- Command Line Tools **do not include XCTest** framework on macOS 26.0
+- All SDK modules (GPMF, FIT, CSV) use **XCTest** for testing
+- `swift test` will fail with "no such module 'XCTest'" if misconfigured
+- Proper configuration enables: test execution, debugging, code coverage
+
+**Verification Commands:**
+```bash
+# Should show Xcode toolchain
+swift --version
+# Expected: Apple Swift version 6.2.3 ... Target: arm64-apple-macosx26.0
+
+# Should work after proper xcode-select
+cd modules/gpmf-swift-sdk-main && swift test
+cd modules/fit-swift-sdk-main && swift test
+cd modules/csv-swift-sdk-main && swift test
+```
+
+### Testing Framework
+
+**Standard:** All SDK modules use **XCTest** (not Swift Testing)
+
+| Module | Tests | Framework | Status |
+|--------|-------|-----------|--------|
+| gpmf-swift-sdk-main | 222 tests | XCTest | ✅ Complete |
+| fit-swift-sdk-main | ~50 tests | XCTest | ✅ Complete |
+| csv-swift-sdk-main | ~15 tests | XCTest | ✅ Complete |
+
+**Why XCTest (not Swift Testing):**
+- Mature, stable, complete tooling support
+- Full Xcode integration (debugging, coverage, UI)
+- Swift Testing requires Swift 6.0+ and is still experimental
+- Consistency across all SDK modules
+
+**Running Tests:**
+```bash
+# From SDK directory (requires proper xcode-select)
+swift test                    # All tests
+swift test --filter GPMFTests # Specific suite
+
+# Or via Xcode (always works)
+xcodebuild test -scheme GPMFSwiftSDK -destination 'platform=macOS'
+```
+
 ## Tech Stack
 
 | Layer              | Technology                                    |
@@ -35,7 +104,7 @@ swift test --filter GPMFTests  # Run specific test suite
 | Concurrency        | Swift Structured Concurrency (`async`/`await`) |
 | Observation        | Swift Observation (`@Observable`)             |
 | Data Persistence   | SQLite (GRDB.swift), DuckDB (OLAP, planned)   |
-| Testing            | Swift Testing framework + XCTest              |
+| Testing            | XCTest (all SDK modules, 280+ tests)          |
 | Module System      | Swift Package Manager (SPM)                   |
 
 **No SwiftLint or SwiftFormat configured yet.** No CI/CD pipelines exist.
@@ -283,24 +352,46 @@ Example: `RDS_20260228_1430_Session_Export.json`
 
 ### Framework
 
-- **Swift Testing** (primary): `@Test`, `@Suite`, `#expect()`
-- **XCTest** (compatibility): For existing test suites in SDK modules
+**All RDS modules use XCTest** (standard Apple testing framework).
+
+- **XCTest** (standard): All SDK modules (GPMF, FIT, CSV)
+- **Swift Testing** (future): Not currently used (requires Swift 6.0+ full toolchain)
+
+**Rationale:**
+- XCTest is mature, stable, and fully integrated with Xcode
+- All existing SDKs (222+ tests) use XCTest
+- Swift Testing not available in current toolchain configuration
+- Consistency across codebase
 
 ### Test Patterns
 
+**SDK Module Tests (XCTest):**
 ```swift
-import Testing
+import XCTest
+@testable import GPMFSwiftSDK
 
-@Suite("Fusion Engine")
-struct FusionEngineTests {
-    @Test("Tilt bias calculation with known data")
+final class FusionEngineTests: XCTestCase {
     func testTiltBiasCalculation() {
         let samples = createMockAccelSamples()
         let gpsSpeed = createMockGPSSpeed()
 
         let bias = FusionEngine.calculateTiltBias(samples, gpsSpeed)
 
-        #expect(abs(bias - 0.15) < 0.01)  // Known good value ±0.01G
+        XCTAssertEqual(bias, 0.15, accuracy: 0.01)  // Known good value ±0.01G
+    }
+}
+```
+
+**App Module Tests (Future - XCTest or Swift Testing):**
+```swift
+// When Swift Testing becomes available in stable toolchain:
+import Testing
+
+@Suite("Fusion Engine")
+struct FusionEngineTests {
+    @Test("Tilt bias calculation")
+    func testTiltBiasCalculation() {
+        #expect(abs(bias - 0.15) < 0.01)
     }
 }
 ```
@@ -308,8 +399,8 @@ struct FusionEngineTests {
 **Conventions:**
 - Factory helpers: `create*`, `mock*` prefix
 - Constants: `MOCK_*` prefix
-- Floating-point: Use `abs(a - b) < epsilon` or `#expect(a, accuracy: epsilon)`
-- Snapshot testing: Consider `swift-snapshot-testing` for UI
+- Floating-point: `XCTAssertEqual(a, b, accuracy: epsilon)` or `abs(a - b) < epsilon`
+- Snapshot testing: Consider `swift-snapshot-testing` for UI (future)
 
 ### Coverage Targets
 

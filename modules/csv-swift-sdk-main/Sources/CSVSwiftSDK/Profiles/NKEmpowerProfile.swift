@@ -9,15 +9,15 @@ import Foundation
 
 /// A parsed session containing NK Empower stroke data.
 public struct NKEmpowerSession: Codable, Sendable {
-    public let strokes: [StrokeData]
-    
-    public init(strokes: [StrokeData]) {
+    public let strokes: [NKEmpowerStroke]
+
+    public init(strokes: [NKEmpowerStroke]) {
         self.strokes = strokes
     }
 }
 
 /// A single standardized stroke from the NK Empower logbook.
-public struct StrokeData: Codable, Sendable {
+public struct NKEmpowerStroke: Codable, Sendable {
     public let strokeNumber: Int
     public let elapsedTime: TimeInterval
     public let distance: Double

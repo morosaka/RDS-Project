@@ -1,8 +1,19 @@
-# Created by http://www.gitignore.io
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
 
-### Objective-C ###
 # Xcode
-#
+xcuserdata/
+*.xcworkspace
+*.xcodeproj
+DerivedData/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Build artifacts
 build/
 *.pbxuser
 !default.pbxuser
@@ -12,20 +23,13 @@ build/
 !default.mode2v3
 *.perspectivev3
 !default.perspectivev3
-xcuserdata
-*.xccheckout
-*.moved-aside
-DerivedData
 *.hmap
 *.ipa
 *.xcuserstate
-.build/
+*.xccheckout
+*.moved-aside
 
-# CocoaPods
-#
-# We recommend against adding the Pods directory to your .gitignore. However
-# you should judge for yourself, the pros and cons are mentioned at:
-# http://guides.cocoapods.org/using/using-cocoapods.html#should-i-ignore-the-pods-directory-in-source-control
-#
-# Pods/
-
+# Testing
+.test_output/
+*.profraw
+*.profdata

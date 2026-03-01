@@ -1,53 +1,49 @@
-// Tests/CSVSwiftSDKTests/QuotedTests.swift v1.0.0
+// Tests/CSVSwiftSDKTests/QuotedTests.swift v1.1.0
 /**
- * Generic CSV parsing utility.
+ * Quoted field parsing tests using Swift Testing framework.
  * --- Revision History ---
  * v1.0.0 - 2026-03-01 - Initial standardization.
+ * v1.1.0 - 2026-03-01 - REFACTOR: Migrated to Swift Testing framework.
  */
-//
-//  QuotedTests.swift
-//  SwiftCSV
-//
-//  Created by Will Richardson on 7/04/16.
-//  Copyright © 2016 Naoto Kaneko. All rights reserved.
-//
 
-import XCTest
-import CSVSwiftSDK
+import Testing
+import Foundation
+@testable import CSVSwiftSDK
 
-class QuotedTests: XCTestCase {
-    var csv: CSV<Named>!
+@Suite("Quoted Field Parsing")
+struct QuotedTests {
 
-    override func setUpWithError() throws {
-        csv = try CSV<Named>(string: "id,\"name, person\",age\n\"5\",\"Smith, John\",67\n8,Joe Bloggs,\"8\"")
+    @Test("Quoted header fields")
+    func quotedHeader() throws {
+        let csv = try CSV<Named>(string: "id,\"name, person\",age\n\"5\",\"Smith, John\",67\n8,Joe Bloggs,\"8\"")
+        #expect(csv.header == ["id", "name, person", "age"])
     }
-    
-    func testQuotedHeader() {
-        XCTAssertEqual(csv.header, ["id", "name, person", "age"])
-    }
-    
-    func testQuotedContent() {
-        let cols = csv.rows
-        XCTAssertEqual(cols[0], [
+
+    @Test("Quoted content fields")
+    func quotedContent() throws {
+        let csv = try CSV<Named>(string: "id,\"name, person\",age\n\"5\",\"Smith, John\",67\n8,Joe Bloggs,\"8\"")
+
+        #expect(csv.rows[0] == [
             "id": "5",
             "name, person": "Smith, John",
             "age": "67"
         ])
-        XCTAssertEqual(cols[1], [
+
+        #expect(csv.rows[1] == [
             "id": "8",
             "name, person": "Joe Bloggs",
             "age": "8"
         ])
     }
 
-    func testEmbeddedQuotes() throws {
-		let testFilePath = "TestData/wonderland"
-		let testFileExtension = "csv"
-		guard let csvURL = ResourceHelper.url(forResource: testFilePath, withExtension: testFileExtension) else {
-			XCTAssertNotNil(nil, "Could not get URL for \(testFilePath).\(testFileExtension) from Test Bundle")
-			return
-		}
-        csv = try CSV(url: csvURL)
+    @Test("Embedded quotes (RFC 4180)")
+    func embeddedQuotes() throws {
+        guard let csvURL = ResourceHelper.url(forResource: "TestData/wonderland", withExtension: "csv") else {
+            Issue.record("Could not get URL for wonderland.csv from Test Bundle")
+            return
+        }
+
+        let csv = try CSV<Named>(url: csvURL)
 
         /*
          The test file:
@@ -62,17 +58,18 @@ class QuotedTests: XCTestCase {
          */
 
         let expected = [
-            [ "Character" : "White Rabbit" , "Quote" : #""Where shall I begin, please your Majesty?" he asked."# ],
-            [ "Character" : "King"         , "Quote" : #""Begin at the beginning," the King said gravely, "and go on till you come to the end: then stop.""# ],
-            [ "Character" : "March Hare"   , "Quote" : #""Do you mean that you think you can find out the answer to it?" said the March Hare."# ]
+            ["Character": "White Rabbit", "Quote": #""Where shall I begin, please your Majesty?" he asked."#],
+            ["Character": "King", "Quote": #""Begin at the beginning," the King said gravely, "and go on till you come to the end: then stop.""#],
+            ["Character": "March Hare", "Quote": #""Do you mean that you think you can find out the answer to it?" said the March Hare."#]
         ]
-        
+
         for (index, row) in csv.rows.enumerated() {
-            XCTAssertEqual(expected[index], row)
+            #expect(expected[index] == row)
         }
 
+        // Verify serialization round-trip
         let serialized = csv.serialized
         let read = try String(contentsOf: csvURL, encoding: .utf8)
-        XCTAssertEqual(serialized, read)
+        #expect(serialized == read)
     }
 }
