@@ -1,0 +1,265 @@
+# Relazione sull'Estrazione dei Colpi (Stroke Extraction)
+
+Questa relazione descrive in dettaglio il processo di fusione dati e di estrazione dei colpi implementato nella classe [FusionEngine](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/services/FusionEngine.ts#140-418) e nel modulo matematico [mathUtils.ts](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts).
+
+## 1. Architettura Generale
+L'intero processo è governato dalla funzione statica `FusionEngine.process()`, che prende in input i dati estratti dal file GPMF (accelerometro, giroscopio, GPS, gravità), eventuali dati FIT sincronizzati (cardio, cadenza, potenza) e popola una struttura dati ad altissime prestazioni detta **SoA (Structure of Arrays)**.
+
+## 2. Passi Eseguiti nell'Elaborazione
+
+1. **Pre-calcolo delle Derivate GPS**: Viene calcolata l'accelerazione longitudinale tramite derivazione discreta della velocità GPS (`gpsAccelSeries`).
+2. **Correzione del Tilt Bias (Step 0)**: Si confronta l'accelerazione media dell'IMU (asse Y - Surge) con l'accelerazione derivata dal GPS. La differenza (`tiltBiasG`) indica l'inclinazione statica dello scafo (pitch) ed eventuali disallineamenti del sensore.
+3. **Sincronizzazione Temporale (Step 1)**: Se impostato in "auto", applica il `SignMatchStrategy` per applicare il corretto offset tra i timer della action camera e quelli del GPS.
+4. **Preparazione Filtraggio (Step 1.5)**: La sequenza di accelerazioni Surge, netta del bias gravitazionale, viene "ammorbidita" tramite una media mobile Gaussiana ([gaussianSmooth(accYSeriesRawG, 4)](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#385-428)).
+5. **Generazione Buffers SoA (Step 2)**: Un ciclo iterativo popola i singoli istanti temporali sincronizzando tutti i sensori (Interpolazione dei quaternioni per il pitch/roll, ricerca vettoriale sincrona per i dati FIT/GPS). Allo stesso tempo calcola tramite un Filtro Complementare (`currentVelocity`) una miscela tra la velocità predetta integrando l'accelerometro e la velocità istantanea osservata dal GPS.
+6. **Rilevamento dei Colpi (Stroke Detection)**: Avviene la chiamata a [detectStrokes()](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#532-764). L'algoritmo passa attraverso una fase di detrending per eliminare il drift usando come baseline un [zeroPhaseSmooth](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#325-342), per poi attuare una macchina a stati ("SEEK_VALLEY", "SEEK_PEAK") atta a individuare i cicli reali in base a soglie calcolate sui percentili della traccia dinamicamente.
+7. **Analisi delle Fasi (Stroke Phases)**: Viene chiamata [analyzeStrokePhases()](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#765-828) per identificare, all'interno di ogni colpo validato, in quale istante l'accelerazione ri-attraversa lo zero scendendo (Zero Crossing dopo il picco). Questo divide il colpo in *Drive Phase* e *Recovery Phase*.
+8. **Aggregazione e Metriche Individuali (Stroke Aggregates)**: Viene invocata [calculateStrokeAggregates()](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#831-1002) per calcolare la media statistica di tutte le metriche su base colpo (e.g. Rate, Distanza, Velocità media, Potenza erogata media, Efficienza di scafo, Cadenza, etc).
+9. **Propagazione Buffers**: Le statistiche per colpo vengono re-iniettate nei buffer fotogramma per fotogramma, e la risposta finale viene restituita alla logica di Store dell'applicazione.
+
+---
+
+## 3. Metriche Coinvolte nel Rilevamento
+
+Il rilevamento in se fa ampiamente uso delle seguenti metriche pre-elaborate:
+- **`timestamp`**: Asse temporale millisecondo relativo.
+- **`fus_cal_ts_vel_inertial` (Velocità Inerziale - Complementary Filter)**: La derivazione per l'individuazione di picchi e valli primari. Serve a evitare l'under-detection tipico del rumore degli accelerometri sulle barche.
+- **`imu_raw_ts_acc_surge` e `imu_flt_ts_acc_surge` (Accelerazioni Y)**: Tracce di Surge usate come validatori secondari: l'accelerazione deve rispettare precise pattern morfologiche (accelerazione rapida all'inizio del drive) per evitare l'over-detection (es. onde).
+
+Nelle fasi successive vengono aggregate per calcolare:
+- `strokeRate`: Colpi al minuto.
+- `distance` (DPS): Distanza percorsa nel colpo.
+- `speedAvg` / `speedMax`: Velocità espressa nel colpo.
+- `powerAvg` / `powerMax`: Potenza prodotta.
+- `efficiencyIndex`: Un rapporto empirico basato sull'accelerometro 3D e velocità.
+
+---
+
+## 4. Codice delle Funzioni Principali
+
+Di seguito il codice e la descrizione per ciascuna delle funzioni matematiche chiave importate da [mathUtils.ts](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts).
+
+### A) Rilevamento Colpi: [detectStrokes](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#532-764)
+
+> Analizza la serie temporale della velocità per identificare sequenze Valle -> Picco -> Valle consecutive rigide e non artefatte. Attua un filtro anti-drift ad altissimo livello.
+
+```typescript
+export const detectStrokes = (timestamps: NumericArray, inertialVel: NumericArray, surgeAccel: NumericArray, minStrokeDurMs: number = 500): Array<{ index: number; startTime: number; endTime: number; duration: number; startIdx: number; endIdx: number; }> => {
+    const smoothVel = zeroPhaseSmooth(inertialVel, 15);
+    const len = timestamps.length;
+    if (len < 100) return [];
+
+    let dtMs = 0;
+    if (len > 10) {
+        const diffs = [];
+        const limit = Math.min(len, 100);
+        for (let k = 1; k < limit; k++) diffs.push(timestamps[k] - timestamps[k - 1]);
+        diffs.sort((a, b) => a - b);
+        dtMs = diffs[Math.floor(diffs.length / 2)];
+    }
+    if (dtMs <= 0) dtMs = 5;
+
+    const targetWinMs = 6000;
+    let baseWin = Math.round(targetWinMs / dtMs);
+    if (baseWin % 2 === 0) baseWin++; // Force odd
+    baseWin = Math.max(101, Math.min(baseWin, 5001));
+
+    const baseline = zeroPhaseSmooth(smoothVel, baseWin);
+
+    const velDet = createOutputArray(smoothVel, len);
+    for (let i = 0; i < len; i++) velDet[i] = smoothVel[i] - baseline[i];
+
+    const detP95 = getQuantile(velDet, 0.95);
+    const detP05 = getQuantile(velDet, 0.05);
+    const detRange = detP95 - detP05;
+
+    const eps = 0.01;
+    const rangeRatio = detRange / Math.max(detP95, eps);
+
+    const H_UP = Math.max(detRange * 0.20, detP95 * 0.06);
+    const H_DN = Math.max(detRange * 0.20, detP95 * 0.06);
+    const REARM_DN = Math.max(detRange * 0.08, detP95 * 0.02);
+
+    const SWING_MIN_RATIO = Math.max(0.06, Math.min(0.18, 0.35 * rangeRatio));
+    const PRE_MS = 250;
+    const POST_MS = 300;
+    const A_NEG = 0.03;
+    const A_POS = 0.03;
+    const AMP_MIN_ACC = 0.08;
+    const MAX_STROKE_DUR_MS = 7000;
+
+    const canValidateAccel = surgeAccel && surgeAccel.length === len;
+    const candidates: { startIdx: number; startTime: number; peakVal: number; valleyVal: number }[] = [];
+    let state: 'SEEK_VALLEY' | 'SEEK_PEAK' = 'SEEK_VALLEY';
+    let candidateMin = Infinity, candidateMinIdx = -1, candidateMax = -Infinity;
+    let rearmCount = 0;
+    const recentPeriods: number[] = [];
+
+    const getEstimatedPeriod = () => {
+        if (recentPeriods.length < 3) return 1200;
+        return median(recentPeriods);
+    };
+
+    for (let i = 0; i < len; i++) {
+        const v = velDet[i];
+
+        if (state === 'SEEK_VALLEY') {
+            if (v < candidateMin) { candidateMin = v; candidateMinIdx = i; }
+            if (v > candidateMin + H_UP) { state = 'SEEK_PEAK'; candidateMax = v; }
+        } else {
+            if (v < candidateMin - REARM_DN) {
+                state = 'SEEK_VALLEY'; candidateMin = v; candidateMinIdx = i; candidateMax = -Infinity; rearmCount++;
+                continue;
+            }
+            if (v > candidateMax) candidateMax = v;
+            
+            if (v < candidateMax - H_DN) {
+                const swingAbs = candidateMax - candidateMin;
+                const swingRatio = swingAbs / Math.max(Math.abs(candidateMax), eps);
+                const isSignificant = swingRatio >= SWING_MIN_RATIO;
+                const lastCand = candidates.length > 0 ? candidates[candidates.length - 1] : null;
+                const periodEst = getEstimatedPeriod();
+                
+                let isTimingGood = true;
+                if (lastCand) {
+                    const dt = timestamps[candidateMinIdx] - lastCand.startTime;
+                    if (dt < periodEst * 0.45) isTimingGood = false;
+                } else {
+                    if (candidateMinIdx < 10) isTimingGood = false;
+                }
+
+                let passAccelPattern = true;
+                if (canValidateAccel && isSignificant && isTimingGood) {
+                    const t0 = timestamps[candidateMinIdx];
+                    let preStartIdx = candidateMinIdx;
+                    while (preStartIdx > 0 && timestamps[preStartIdx] > t0 - PRE_MS) preStartIdx--;
+                    let postEndIdx = candidateMinIdx;
+                    while (postEndIdx < len - 1 && timestamps[postEndIdx] < t0 + POST_MS) postEndIdx++;
+
+                    let preMin = Infinity; for (let k = preStartIdx; k <= candidateMinIdx; k++) if (surgeAccel[k] < preMin) preMin = surgeAccel[k];
+                    let postMax = -Infinity; for (let k = candidateMinIdx; k <= postEndIdx; k++) if (surgeAccel[k] > postMax) postMax = surgeAccel[k];
+
+                    if (preMin > -A_NEG || postMax < A_POS || (postMax - preMin) < AMP_MIN_ACC) passAccelPattern = false;
+                }
+
+                if (isSignificant && isTimingGood && passAccelPattern) {
+                    candidates.push({ startIdx: candidateMinIdx, startTime: timestamps[candidateMinIdx], peakVal: candidateMax, valleyVal: candidateMin });
+                    if (lastCand) {
+                        const dt = timestamps[candidateMinIdx] - lastCand.startTime;
+                        if (dt > 500 && dt < 6000) { recentPeriods.push(dt); if (recentPeriods.length > 7) recentPeriods.shift(); }
+                    }
+                }
+                state = 'SEEK_VALLEY'; candidateMin = v; candidateMinIdx = i; candidateMax = -Infinity;
+            }
+        }
+    }
+    const resultEvents: Array<{ index: number; startTime: number; endTime: number; duration: number; startIdx: number; endIdx: number; }> = [];
+    for (let i = 0; i < candidates.length - 1; i++) {
+        const current = candidates[i], next = candidates[i + 1], duration = next.startTime - current.startTime;
+        if (duration > MAX_STROKE_DUR_MS) continue;
+        resultEvents.push({ index: resultEvents.length, startTime: current.startTime, endTime: next.startTime, duration, startIdx: current.startIdx, endIdx: next.startIdx });
+    }
+    return resultEvents;
+};
+```
+
+### B) Analisi delle Fasi: [analyzeStrokePhases](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#765-828)
+> Divide la remata calcolando l'istante in cui l'accelerazione crolla sotto lo zero.
+
+```typescript
+export const analyzeStrokePhases = (strokes: StrokeEvent[], surgeAccel: NumericArray, timestamps: NumericArray): StrokeEvent[] => {
+    return strokes.map(stroke => {
+        if (stroke.startIdx < 0 || stroke.endIdx > surgeAccel.length || stroke.startIdx >= stroke.endIdx) return stroke;
+
+        const searchLimit = Math.min(stroke.endIdx, stroke.startIdx + Math.floor((stroke.endIdx - stroke.startIdx) * 0.7));
+        let maxAcc = -Infinity, maxIdx = -1;
+
+        for (let i = stroke.startIdx; i < searchLimit; i++) {
+            if (surgeAccel[i] > maxAcc) { maxAcc = surgeAccel[i]; maxIdx = i; }
+        }
+
+        if (maxIdx === -1 || maxAcc <= 0) return stroke;
+
+        let finishIdx = -1;
+        for (let i = maxIdx; i < stroke.endIdx; i++) {
+            if (surgeAccel[i] < 0) { finishIdx = i; break; }
+        }
+
+        if (finishIdx !== -1) {
+            const finishTime = timestamps[finishIdx];
+            const driveDur = finishTime - stroke.startTime;
+            const recoveryDur = stroke.endTime - finishTime;
+
+            if (driveDur > 50 && recoveryDur > 50) {
+                return { ...stroke, finishTime: finishTime, driveDuration: driveDur, recoveryDuration: recoveryDur, rhythmRatio: driveDur / stroke.duration };
+            }
+        }
+        return stroke;
+    });
+};
+```
+
+### C) Aggregazione Metriche Colpo: [calculateStrokeAggregates](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#831-1002)
+> Scorre la finestra temporale che pertiene ad ogni colpo, ricreando i valori medi e di picco.
+*(Per brevità di documentazione la funzione analizza le strutture SoA ed AoS ed assorbe tramite iterazione l'identificazione di massimi, minimi e medie e fa un check di nearest array neighbor in assenza di dati FIT).*
+
+```typescript
+export const calculateStrokeAggregates = (data: Record<string, number | undefined>[] | SoABufferLike, strokes: StrokeEvent[]): PerStrokeStat[] => {
+    const isSoA = 'size' in data && !Array.isArray(data);
+    const soa = data as SoABufferLike;
+    const aos = data as Record<string, number | undefined>[];
+
+    return strokes.map(stroke => {
+        let speedSum = 0, speedMax = -Infinity, powerSum = 0, powerMax = -Infinity;
+        let accelMax = -Infinity, accelMin = Infinity, effSum = 0;
+        let count = 0;
+        
+        const start = stroke.startIdx, end = stroke.endIdx;
+        
+        if (end > start) {
+            for (let i = start; i < end; i++) {
+                let s = 0, p = 0, a = 0;
+                let ax = 0, ay = 0, az = 0;
+                
+                if (isSoA) {
+                    s = soa.gps_gpmf_ts_speed[i]; if (isNaN(s)) s = soa.gps_ext_ts_speed[i]; if (isNaN(s)) s = soa.fus_cal_ts_vel_inertial[i]; if (isNaN(s)) s = 0;
+                    p = soa.mech_ext_ts_power[i]; if (isNaN(p) && !isNaN(soa.imu_raw_ts_acc_surge[i])) p = (soa.imu_raw_ts_acc_surge[i] * 9.80665) * s * 85; if (isNaN(p)) p = 0;
+                    a = soa.imu_flt_ts_acc_surge[i]; if (isNaN(a)) a = soa.imu_raw_ts_acc_surge[i]; if (isNaN(a)) a = 0;
+                    ax = soa.imu_raw_ts_acc_sway[i] || 0; ay = soa.imu_raw_ts_acc_surge[i] || 0; az = soa.imu_raw_ts_acc_heave[i] || 0;
+                } else {
+                    const f = aos[i];
+                    s = f.gps_gpmf_ts_speed ?? f.gps_ext_ts_speed ?? f.fus_cal_ts_vel_inertial ?? 0;
+                    p = f.mech_ext_ts_power ?? (f.imu_raw_ts_acc_surge ? (f.imu_raw_ts_acc_surge * 9.80665) * s * 85 : 0);
+                    a = f.imu_flt_ts_acc_surge ?? f.imu_raw_ts_acc_surge ?? 0;
+                    ax = f.imu_raw_ts_acc_sway ?? 0; ay = f.imu_raw_ts_acc_surge ?? 0; az = f.imu_raw_ts_acc_heave ?? 0;
+                }
+
+                speedSum += s; if (s > speedMax) speedMax = s;
+                powerSum += p; if (p > powerMax) powerMax = p;
+                if (a > accelMax) accelMax = a; if (a < accelMin) accelMin = a;
+                effSum += s / (Math.sqrt(ax * ax + ay * ay + az * az) + 0.1);
+                count++;
+            }
+        }
+        
+        const speedAvg = count > 0 ? speedSum / count : 0;
+        
+        return {
+            index: stroke.index, timestamp: stroke.startTime + stroke.duration / 2, duration: stroke.duration,
+            strokeRate: stroke.duration > 0 ? 60000 / stroke.duration : 0,
+            distance: speedAvg * (stroke.duration / 1000), speedAvg, speedMax: speedMax === -Infinity ? 0 : speedMax,
+            powerAvg: count > 0 ? powerSum / count : 0, powerMax: powerMax === -Infinity ? 0 : powerMax,
+            accelMax: accelMax === -Infinity ? 0 : accelMax, accelMin: accelMin === Infinity ? 0 : accelMin,
+            efficiencyIndex: count > 0 ? effSum / count : 0,
+            driveTime: stroke.driveDuration, recoveryTime: stroke.recoveryDuration, driveRatio: stroke.rhythmRatio,
+        } as PerStrokeStat;
+    });
+};
+```
+
+### D) Filtri Signal Processing Coinvolti
+
+[FusionEngine](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/services/FusionEngine.ts#140-418), [detectStrokes](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#532-764) e altre utility usano filtri molto performanti. I più critici sono due:
+
+**[gaussianSmooth](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#385-428)**: Usato su [FusionEngine](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/services/FusionEngine.ts#140-418) (Phase 1.5) per creare `imu_flt_ts_acc_surge`.
+**[zeroPhaseSmooth](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#325-342) / [simpleMovingAverage](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#298-324)**: Usati internamente da [detectStrokes](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#532-764) (sia il filtro di rumore "len=15", sia quello per creare la *baseline detrended* a 6000ms). Il [zeroPhaseSmooth](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#325-342) chiama la SMA dal versante *forward* e la richiama dal frame rovesciato *backward* per annullare il phase shift tipico delle medie mobili.
