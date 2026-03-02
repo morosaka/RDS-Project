@@ -13,6 +13,24 @@ import Testing
 import Foundation
 @testable import RowDataStudio
 
+/// Creates a JSON encoder that supports NaN and Infinity values.
+private func nanSafeEncoder() -> JSONEncoder {
+    let encoder = JSONEncoder()
+    encoder.nonConformingFloatEncodingStrategy = .convertToString(
+        positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN"
+    )
+    return encoder
+}
+
+/// Creates a JSON decoder that supports NaN and Infinity values.
+private func nanSafeDecoder() -> JSONDecoder {
+    let decoder = JSONDecoder()
+    decoder.nonConformingFloatDecodingStrategy = .convertFromString(
+        positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN"
+    )
+    return decoder
+}
+
 @Suite("SensorDataBuffers Tests")
 struct SensorDataBuffersTests {
 
@@ -65,13 +83,11 @@ struct SensorDataBuffersTests {
         // Add dynamic channel
         buffers.dynamic["test_metric"] = ContiguousArray([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        // Encode
-        let encoder = JSONEncoder()
-        let jsonData = try encoder.encode(buffers)
+        // Encode (NaN-safe because default-initialized channels contain NaN)
+        let jsonData = try nanSafeEncoder().encode(buffers)
 
         // Decode
-        let decoder = JSONDecoder()
-        let decoded = try decoder.decode(SensorDataBuffers.self, from: jsonData)
+        let decoded = try nanSafeDecoder().decode(SensorDataBuffers.self, from: jsonData)
 
         // Verify
         #expect(decoded.size == 5)
@@ -92,12 +108,9 @@ struct SensorDataBuffersTests {
         buffers.imu_raw_ts_acc_surge = ContiguousArray([0.1, .nan, 0.3])
         buffers.gps_gpmf_ts_speed = ContiguousArray([2.5, 2.6, .nan])
 
-        // Encode and decode
-        let encoder = JSONEncoder()
-        let jsonData = try encoder.encode(buffers)
-
-        let decoder = JSONDecoder()
-        let decoded = try decoder.decode(SensorDataBuffers.self, from: jsonData)
+        // Encode and decode with NaN-safe strategies
+        let jsonData = try nanSafeEncoder().encode(buffers)
+        let decoded = try nanSafeDecoder().decode(SensorDataBuffers.self, from: jsonData)
 
         // Verify NaN preserved
         #expect(decoded.imu_raw_ts_acc_surge[0] == 0.1)

@@ -73,8 +73,8 @@ struct StrokeEventTests {
             isValid: true
         )
 
-        #expect(stroke.duration == 2.4)
-        #expect(stroke.strokeRate == 25.0)
+        #expect(abs(stroke.duration - 2.4) < 1e-10)
+        #expect(abs(stroke.strokeRate - 25.0) < 1e-10)
         #expect(stroke.isValid == true)
     }
 
@@ -105,7 +105,7 @@ struct StrokeEventTests {
         #expect(decoded.startTime == 25.5)
         #expect(decoded.endTime == 27.8)
         #expect(decoded.peakVelocity == 4.2)
-        #expect(decoded.duration == 2.3)
+        #expect(abs(decoded.duration - 2.3) < 1e-10)
     }
 
     @Test("StrokeEvent partial stroke (invalid)")

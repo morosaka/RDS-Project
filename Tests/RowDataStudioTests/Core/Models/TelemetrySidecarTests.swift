@@ -11,7 +11,6 @@
 
 import Testing
 import Foundation
-import GPMFSwiftSDK
 @testable import RowDataStudio
 
 @Suite("TelemetrySidecar Tests")
@@ -65,7 +64,7 @@ struct TelemetrySidecarTests {
         #expect(sidecar.version == 1)
         #expect(sidecar.deviceName == nil)
         #expect(sidecar.absoluteOrigin == nil)
-        #expect(sidecar.accelReadings == nil)
+        #expect(sidecar.streamInfo.isEmpty)
 
         // Roundtrip
         let encoder = JSONEncoder()
@@ -78,31 +77,18 @@ struct TelemetrySidecarTests {
         #expect(decoded.trimRange == 0.0...300.0)
     }
 
-    @Test("TelemetrySidecar with sensor data")
-    func withSensorData() throws {
-        let accelReadings = [
-            SensorReading(timestamp: 0.0, x: 0.1, y: 0.2, z: 9.8),
-            SensorReading(timestamp: 0.005, x: 0.15, y: 0.18, z: 9.85)
-        ]
-
-        let gpsReadings = [
-            GpsReading(
-                timestamp: 0.0,
-                latitude: 45.5,
-                longitude: -122.6,
-                altitude: 10.0,
-                speed2D: 2.5,
-                speed3D: 2.5
-            )
-        ]
-
+    @Test("TelemetrySidecar with stream info")
+    func withStreamInfo() throws {
         let sidecar = TelemetrySidecar(
             sourceFileHash: "hash",
             sourceFileName: "test.mp4",
             originalDuration: 300.0,
             trimRange: 0.0...300.0,
-            accelReadings: accelReadings,
-            gpsReadings: gpsReadings
+            streamInfo: [
+                "ACCL": "200Hz",
+                "GYRO": "200Hz",
+                "GPS5": "18Hz"
+            ]
         )
 
         // Roundtrip
@@ -112,10 +98,9 @@ struct TelemetrySidecarTests {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(TelemetrySidecar.self, from: jsonData)
 
-        #expect(decoded.accelReadings?.count == 2)
-        #expect(decoded.gpsReadings?.count == 1)
-        #expect(decoded.accelReadings?[0].timestamp == 0.0)
-        #expect(decoded.gpsReadings?[0].latitude == 45.5)
+        #expect(decoded.streamInfo.count == 3)
+        #expect(decoded.streamInfo["ACCL"] == "200Hz")
+        #expect(decoded.streamInfo["GPS5"] == "18Hz")
     }
 
     @Test("TelemetrySidecar trim range extraction")

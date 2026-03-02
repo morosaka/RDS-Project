@@ -8,6 +8,7 @@
 // Version: 1.0.0 (2026-03-01)
 // Revision History:
 //   2026-03-01: Initial implementation (Phase 1: Data Models)
+//   2026-03-02: Replace GPMF SDK types with Codable-compatible representations
 //
 // Source: docs/architecture/data-models.md §TelemetrySidecar
 //
@@ -17,7 +18,44 @@
 //
 
 import Foundation
-import GPMFSwiftSDK
+
+// MARK: - Codable GPS Timestamp Types
+
+/// Codable representation of a GPSU timestamp observation.
+///
+/// Mirrors GPMFSwiftSDK.GPSTimestampObservation but with Codable conformance.
+/// Conversion from SDK types will be done in GPMFAdapter (Phase 3).
+public struct GPSTimestampRecord: Codable, Sendable, Hashable {
+    /// The GPSU string value in "yymmddhhmmss.sss" format
+    public let value: String
+    /// Relative time within the file when this GPSU was observed (seconds from file start)
+    public let relativeTime: TimeInterval
+    /// Parsed UTC date, if successfully parsed
+    public let parsedDate: Date?
+
+    public init(value: String, relativeTime: TimeInterval, parsedDate: Date? = nil) {
+        self.value = value
+        self.relativeTime = relativeTime
+        self.parsedDate = parsedDate
+    }
+}
+
+/// Codable representation of a GPS9 timestamp.
+///
+/// Mirrors GPMFSwiftSDK.GPS9Timestamp but with Codable conformance.
+public struct GPS9TimestampRecord: Codable, Sendable, Hashable {
+    /// Days elapsed since January 1, 2000
+    public let daysSince2000: UInt32
+    /// Seconds since midnight UTC, with millisecond precision
+    public let secondsSinceMidnight: Double
+
+    public init(daysSince2000: UInt32, secondsSinceMidnight: Double) {
+        self.daysSince2000 = daysSince2000
+        self.secondsSinceMidnight = secondsSinceMidnight
+    }
+}
+
+// MARK: - TelemetrySidecar
 
 /// Telemetry sidecar: cached GPMF extraction for trimmed video.
 ///
@@ -26,7 +64,7 @@ import GPMFSwiftSDK
 ///
 /// This sidecar is generated during video triage/trim operations.
 /// It eliminates the need to re-parse the MP4 GPMF track on every session load.
-public struct TelemetrySidecar: Codable, Sendable {
+public struct TelemetrySidecar: Codable, Sendable, Hashable {
     /// Sidecar format version (for future migration)
     public let version: Int
 
@@ -64,24 +102,23 @@ public struct TelemetrySidecar: Codable, Sendable {
     // MARK: - GPS Timestamps (for sync diagnostics)
 
     /// First GPS timestamp observation
-    public let firstGPSU: GPSTimestampObservation?
+    public let firstGPSU: GPSTimestampRecord?
 
-    /// Last GPS timestamp observation
-    public let lastGPSU: GPSTimestampObservation?
+    /// Last GPS timestamp observation (higher accuracy per GPMF timing model)
+    public let lastGPSU: GPSTimestampRecord?
 
     /// First GPS9 timestamp (if available)
-    public let firstGPS9Time: GPS9Timestamp?
+    public let firstGPS9Time: GPS9TimestampRecord?
 
     /// Last GPS9 timestamp (if available)
-    public let lastGPS9Time: GPS9Timestamp?
+    public let lastGPS9Time: GPS9TimestampRecord?
 
     /// MP4 creation time from file metadata
     public let mp4CreationTime: Date?
 
     // MARK: - Stream Info
 
-    /// Stream metadata (e.g., ACCL: 200Hz, GPS: 18Hz)
-    /// Stored as JSON-compatible dictionary for now
+    /// Stream metadata (e.g., "ACCL": "200Hz", "GPS5": "18Hz")
     public let streamInfo: [String: String]
 
     // MARK: - Sensor Data (timestamps re-based to 0.0 = trim start)
@@ -98,10 +135,10 @@ public struct TelemetrySidecar: Codable, Sendable {
         deviceName: String? = nil,
         deviceID: UInt32? = nil,
         orin: String? = nil,
-        firstGPSU: GPSTimestampObservation? = nil,
-        lastGPSU: GPSTimestampObservation? = nil,
-        firstGPS9Time: GPS9Timestamp? = nil,
-        lastGPS9Time: GPS9Timestamp? = nil,
+        firstGPSU: GPSTimestampRecord? = nil,
+        lastGPSU: GPSTimestampRecord? = nil,
+        firstGPS9Time: GPS9TimestampRecord? = nil,
+        lastGPS9Time: GPS9TimestampRecord? = nil,
         mp4CreationTime: Date? = nil,
         streamInfo: [String: String] = [:]
     ) {

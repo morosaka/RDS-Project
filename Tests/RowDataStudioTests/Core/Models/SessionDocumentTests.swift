@@ -74,13 +74,18 @@ struct SessionDocumentTests {
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(SessionDocument.self, from: jsonData)
 
-        // Verify equality
-        #expect(decoded == document)
+        // Verify fields
         #expect(decoded.metadata.title == "Test Session")
+        #expect(decoded.metadata.athletes.count == 2)
+        #expect(decoded.metadata.athletes[0].name == "Alice")
         #expect(decoded.sources.count == 2)
         #expect(decoded.timeline.duration == 600.0)
+        #expect(decoded.timeline.tracks.count == 2)
         #expect(decoded.regions.count == 1)
+        #expect(decoded.regions[0].name == "Sprint")
+        #expect(decoded.syncState.gpmfToVideo?.confidence == 0.95)
         #expect(decoded.syncState.fitToVideo.count == 1)
+        #expect(decoded.version == 1)
     }
 
     @Test("SessionDocument primary video accessor")

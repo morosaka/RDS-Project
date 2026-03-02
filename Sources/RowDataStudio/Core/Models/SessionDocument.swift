@@ -148,7 +148,7 @@ public struct SyncState: Codable, Sendable, Hashable {
 ///
 /// **Non-destructive editing**: Source files are never modified. All operations
 /// (trim, sync, annotations) are virtual references stored in this document.
-public struct SessionDocument: Codable, Sendable, Hashable {
+public struct SessionDocument: Codable, Sendable {
     /// Session metadata (id, title, date, athletes, notes)
     public var metadata: SessionMetadata
 

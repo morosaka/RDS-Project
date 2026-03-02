@@ -54,18 +54,4 @@ public struct ROI: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
-// Codable conformance for ClosedRange<TimeInterval>
-extension ClosedRange: Codable where Bound: Codable {
-    public init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        let lowerBound = try container.decode(Bound.self)
-        let upperBound = try container.decode(Bound.self)
-        self = lowerBound...upperBound
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.unkeyedContainer()
-        try container.encode(lowerBound)
-        try container.encode(upperBound)
-    }
-}
+// Note: ClosedRange is already Codable in Swift standard library.
