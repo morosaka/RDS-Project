@@ -5,6 +5,7 @@
 **Status:** DRAFT — integrated with RDL codebase v0.32.0 knowledge
 
 **Changelog:**
+
 - v1.0 (2026-02-27): Initial version from structured interview
 - v1.1 (2026-02-27): Integration of algorithms, constants, architectural patterns from
   RowDataLab codebase analysis. Added sections 8.4-8.6 (nomenclature, FusionEngine, signal processing).
@@ -25,7 +26,7 @@ Apple native incarnation, distinct identities are needed.
 **Evaluated options:**
 
 | Name | Acronym | Pros | Cons |
-|------|-------|-----|--------|
+| ---- | ------- | ---- | ---- |
 | RowData Studio | RDS | Professional, evokes creative environment (like "Final Cut Studio"). Clear connection to RDL brand | "Studio" is a very common suffix |
 | RowData Forge | RDF | Evokes transformation (raw data → insight). Unique, memorable | Less immediate for non-technical users |
 | RowData Desk | RDD | Recalls the "Rowing Desk" (canvas) concept emerged in design. Evokes workstation | Could sound too "office" |
@@ -93,7 +94,7 @@ architectural choices of this version.
 **Alternatives considered and discarded:**
 
 | Alternative | Reason for rejection |
-|-------------|---------------------|
+| ----------- | -------------------- |
 | Flutter/React Native | Insufficient video performance, no AVFoundation, no Metal |
 | Electron | Excessive resource consumption for heavy video manipulation |
 | Web app (as RDL) | Limits reached in the previous version — technical ceiling of the platform |
@@ -101,7 +102,7 @@ architectural choices of this version.
 ### Platform targets
 
 | Platform | Priority | Role |
-|-------------|----------|-------|
+| -------- | -------- | ---- |
 | **macOS** | MVP | Deep analysis, large screens, long work sessions |
 | **iPadOS** | MVP | Field/office flexibility, touch for canvas |
 | **iOS (iPhone)** | Post-MVP | In-boat athlete module, facilitated ingest |
@@ -166,7 +167,7 @@ explicit "export/triage" phase to free up disk space.
 
 Fundamental work unit. A JSON/Codable document describing an analysis session.
 
-```
+```text
 SessionDocument
 ├── metadata
 │   ├── id: UUID
@@ -259,19 +260,20 @@ struct TelemetrySidecar: Codable, Sendable {
 **Estimated sizes for a 5-minute trim (300s):**
 
 | Stream | Freq | Samples | Bytes/sample | Total |
-|--------|------|---------|--------------|--------|
-| ACCL   | 200Hz | 60,000 | 32 (ts+xyz) | 1.9 MB |
-| GYRO   | 200Hz | 60,000 | 32           | 1.9 MB |
-| GPS    | 10Hz  | 3,000  | 48           | 0.1 MB |
-| GRAV   | 60Hz  | 18,000 | 32           | 0.6 MB |
-| CORI   | 60Hz  | 18,000 | 40           | 0.7 MB |
+| ------ | ---- | ------- | ------------ | ----- |
+| ACCL | 200Hz | 60,000 | 32 (ts+xyz) | 1.9 MB |
+| GYRO | 200Hz | 60,000 | 32 | 1.9 MB |
+| GPS | 10Hz | 3,000 | 48 | 0.1 MB |
+| GRAV | 60Hz | 18,000 | 32 | 0.6 MB |
+| CORI | 60Hz | 18,000 | 40 | 0.7 MB |
 | **Total (JSON gzip)** | | | | **~2-3 MB** |
 
 Comparison: the trimmed video for the same 5 minutes takes ~300 MB (HEVC) or ~600 MB (H.264).
 The sidecar is negligible compared to the video (~1%).
 
 **Naming convention:**
-```
+
+```text
 GX030230_trim_120s_385s.mp4           ← trimmed video
 GX030230_trim_120s_385s.telemetry     ← telemetry sidecar
 ```
@@ -284,13 +286,15 @@ For high-performance analysis, sensory data in memory uses the
 **Structure of Arrays (SoA)** pattern instead of the classic Array of Structs (AoS).
 
 **Why SoA:**
+
 - AoS: `[{t,ax,ay,az,gx,gy,gz,...}, {t,ax,ay,az,...}, ...]` → 40+ fields per object,
   iterating on a single field (e.g. all `ax`) jumps in memory → cache miss
 - SoA: `{ timestamp: [t0,t1,...], ax: [v0,v1,...], ay: [...], ... }` → all `ax` values
   are contiguous → optimal cache line, SIMD-friendly
 
 **RDL Implementation (TypedArray):**
-```
+
+```text
 SensorDataBuffers
 ├── size: Int                          // total samples (= ACCL frames, ~140k for 711s)
 ├── timestamp: Float64Array            // relative time in ms (Float64 for precision)
@@ -326,7 +330,7 @@ Source RDL: `metrics/metrics-engine.ts`, `services/FusionEngine.ts`
 
 ### 6.5 Triage Workflow
 
-```
+```text
                     INGEST                           TRIAGE                        ANALYSIS
                     ─────                            ──────                        ───────
 
@@ -365,7 +369,7 @@ video and audio tracks. The sidecar is therefore the only option.
 ### 7.1 Available Temporal Sources
 
 | Source | Origin | Present in | Reliability | Use |
-|----------|---------|-------------|--------------|-----|
+| ------ | ------ | ---------- | ----------- | --- |
 | `stts` (sample timing) | MP4 atom | Video, GPMF | Authoritative for relative timing | Master clock for timeline |
 | `GPSU` / `GPS9` | GPS satellite | GPMF | Medium (improves with convergence) | Absolute time, cross-device sync |
 | `mp4CreationTime` | Camera RTC | MP4 mvhd | Low (drift, manual setting) | Fallback, approximate sorting |
@@ -381,7 +385,7 @@ frame number derived from the camera's RTC. It adds no information beyond
 The pipeline was developed and validated in RDL v2.6.0. Each step has specific
 constants calibrated on real rowing data with GoPro HERO10, NK SpeedCoach, and Garmin.
 
-```
+```text
 STEP 0: Tilt Bias Estimation
   The IMU surge axis (Y) includes both kinematic acceleration and a static
   gravity component (projection due to camera tilt).
@@ -467,6 +471,7 @@ STEP 4: FIT Diagnostic Tools (validation, not synchronization)
 Two GoPros (boat + motorboat) do not share any clock.
 
 Best available method:
+
 - GPS back-computation (`lastGPSU - relativeTime`) for each camera
 - Offset is the difference between the two absolute origins
 - Precision: ~1-5 seconds (limited by GPS convergence)
@@ -502,7 +507,7 @@ where the user arranges widgets connected to the timeline.
 **Planned widget types for MVP:**
 
 | Widget | Description | Input |
-|--------|-------------|-------|
+| ------ | ----------- | ----- |
 | Video Player | Video frame with optional HUD overlay | Video track |
 | Line Chart | Temporal line chart (ACCL, Speed, HR) | Any numerical track |
 | Map | GPS map with track and current position | GPS track |
@@ -511,12 +516,14 @@ where the user arranges widgets connected to the timeline.
 | Table | Data table for ROI (mean, max, min, dev) | Tracks + ROI |
 
 **Every widget:**
+
 - Freely positionable and resizable (drag & drop)
 - Connected to the global playhead
 - Configurable (scale, color, unit, visible range)
 - Activatable/deactivatable without deleting it
 
 **Playhead interaction:**
+
 - Scrub on any chart → updates all widgets
 - Play/Pause on video → updates all widgets
 - Click on map → updates all widgets
@@ -556,6 +563,7 @@ Canvas { context, size in
 ```
 
 **Key benefits vs RDL pattern**:
+
 - Zero code duplication (smoothing/LTTB written once, reused by 14+ widgets)
 - Simpler testing (data transforms = pure functions)
 - Automatic Metal (no custom shaders as hypothesized in kickoff v1.0)
@@ -567,6 +575,7 @@ consult the dedicated document.
 ### 8.3 Key Metrics (from interview)
 
 **Indispensable:**
+
 - Filtered ACCL (low-pass 4Hz) — stroke signature, check, bounce (surge, sway, heave)
 - Speed (GPS + ACCL derivative) — speed trend, efficiency
 - HR — cardiovascular load, thresholds
@@ -574,11 +583,13 @@ consult the dedicated document.
 - Stroke length — distance per stroke (present in FIT files - TotalDistance stroke n - Totaldistance Stroke n-1)
 
 **Useful:**
+
 - GYRO — rotations, hull roll
 - Overlay comparisons — same metric at different times/sessions
 - Per-stroke analysis (stroke segmentation) with aggregate statistics (stroke duration, stroke length, stroke rate, stroke power)
 
 **To explore:**
+
 - Alternative statistical representations (distribution, wavelet, spectral)
 
 ### 8.4 Metric Nomenclature System (from RDL)
@@ -588,7 +599,7 @@ RDL developed a formal naming system to manage 30+ derived metrics without ambig
 **Pattern:** `[FAMILY]_[SOURCE]_[TYPE]_[NAME]_[MODIFIER]`
 
 | Segment | Values | Meaning |
-|----------|--------|-------------|
+| ------- | ------ | ------- |
 | FAMILY | `imu`, `gps`, `phys`, `mech`, `fus` | Physical domain of the metric |
 | SOURCE | `raw`, `gpmf`, `ext`, `cal`, `fus` | Data source (raw=raw, ext=external/FIT, cal=calibrated, fus=fusion) |
 | TYPE | `ts`, `str`, `evt` | Temporal domain (ts=time-series, str=per-stroke, evt=event) |
@@ -597,7 +608,7 @@ RDL developed a formal naming system to manage 30+ derived metrics without ambig
 
 **Concrete examples from RDL:**
 
-```
+```text
 imu_raw_ts_acc_surge      → Raw accelerometer, surge axis (advancement), time-series
 imu_flt_ts_acc_surge      → Filtered accelerometer, surge axis
 gps_gpmf_ts_speed         → GPS speed from GoPro GPMF, time-series
@@ -610,7 +621,7 @@ mech_fus_str_efficiency   → Efficiency index, per-stroke
 
 **MetricDef interface (to bring into Swift as a Codable struct):**
 
-```
+```text
 MetricDef
 ├── id: String          // e.g. "imu_raw_ts_acc_surge"
 ├── name: String        // e.g. "Surge Acceleration"
@@ -633,7 +644,7 @@ analyzable buffers with derived metrics and stroke segmentation.
 
 **Complete Pipeline (6 steps, rigorous order):**
 
-```
+```text
 Input: TelemetryData (GPMF) + ParsedFitData (FIT) + Config
                                      │
     STEP 0: Tilt Bias ──────────────┤  avgImuSurge - avgGpsAccel → bias in G
@@ -723,7 +734,7 @@ of all analysis and must be brought into Swift using the `Accelerate` framework
 **Core Functions (MVP priority):**
 
 | RDL Function | Description | Swift/Accelerate Equivalent |
-|-------------|-------------|------------------------------|
+| ------------ | ----------- | --------------------------- |
 | `detrend(signal, windowSize)` | Removes baseline (moving average) | `vDSP.subtract` + rolling mean |
 | `integrate(values, dt)` | Cumulative integration (trap. rule) | Loop with `vDSP.add` |
 | `derivative(values, dt)` | Numerical derivative (finite difference) | `vDSP.subtract` + scale |
@@ -737,7 +748,7 @@ of all analysis and must be brought into Swift using the `Accelerate` framework
 **Detection Functions (MVP priority):**
 
 | RDL Function | Description | Notes for port |
-|-------------|-------------|---------------|
+| ------------ | ----------- | -------------- |
 | `detectStrokes(timestamps, vel, acc)` | Stroke detection state machine | Direct port, logic-heavy |
 | `detectZeroCrossings(signal)` | Finds zero crossings | Simple loop |
 | `detectLocalMinima(signal)` | Finds local minima | Loop with 3-point comparison |
@@ -745,7 +756,7 @@ of all analysis and must be brought into Swift using the `Accelerate` framework
 **Statistical Functions:**
 
 | RDL Function | Description | Swift Equivalent |
-|-------------|-------------|-------------------|
+| ------------ | ----------- | ---------------- |
 | `mean(values)` | Arithmetic mean | `vDSP.mean` |
 | `median(values)` | Median | Sort + middle index |
 | `standardDeviation(values)` | Standard deviation | `vDSP.standardDeviation` |
@@ -754,7 +765,7 @@ of all analysis and must be brought into Swift using the `Accelerate` framework
 **Search and Interpolation Functions:**
 
 | RDL Function | Description | Swift Equivalent |
-|-------------|-------------|-------------------|
+| ------------ | ----------- | ---------------- |
 | `binarySearchFloor(arr, target)` | Index of value ≤ target | `Collection.partitioningIndex` |
 | `interpolateAt(series, targetTime)` | Linear interpolation at arbitrary time | Direct port |
 | `getNearestValue(series, time)` | Nearest value by timestamp | Binary search + comparison |
@@ -769,7 +780,7 @@ Source RDL: `common/mathUtils.ts`
 
 ## 9. Module Map
 
-```
+```text
 RowingSuperApp/
 ├── modules/
 │   ├── gpmf-swift-sdk/          ← COMPLETED (222 tests, 0 failures)

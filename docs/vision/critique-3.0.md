@@ -8,7 +8,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ## 1. Reactive Graph Engine Multi-Rate — Limits and Problems
 
-### Internal Problems
+### 1.1 Internal Problems
 
 **Combine is a fragile and potentially dead choice.** The document bets the entire architecture on Apple Combine, a framework that Apple itself has stopped actively updating in favor of Swift Concurrency (async/await, AsyncSequence, Structured Concurrency). At WWDC 2023–2025, Combine received no significant updates. Building a "custom DAG scheduler on top of Combine" means building critical infrastructure on foundations that Apple could deprecate. If Combine is abandoned, the entire engine must be rewritten.
 
@@ -18,13 +18,13 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **`collect(.byCount(200))` and `collect(.byTime())` are not adequate rate-charging tools.** These Combine operators do not natively handle temporal synchronization between different rates. `collect(.byTime(.seconds(1)))` collects "whatever arrives in 1 second" — if the sensor skips samples or sends them in bursts, the result is not 200 clean samples but a variable number. The document does not address the management of missing samples, bursts, or jitter at rate boundaries.
 
-### Unvalidated Assumptions
+### 1.2 Unvalidated Assumptions
 
 **"Swift Charts handles both real-time and post-session rendering comfortably."** This statement is not supported by benchmarks. Swift Charts is known to be significantly slower than Metal-based solutions or even direct Core Graphics. With 1,200 points per viewport, Swift Charts might be okay — but the document provides no empirical data. If rendering stalls during interactive zoom on dense data, the Metal alternative that the document explicitly excludes would be expensive to reintroduce later.
 
 **MinMaxLTTB "10× faster."** Compared to what, in which implementation, on which hardware? The document cites this figure without a source, without a benchmark, without comparison to alternatives like M4 (Median-4), Longest-Line, or simple regular decimation. The choice of downsampling algorithm is presented as obvious when it actually deserves experimental validation.
 
-### Critical Omissions
+### 1.3 Critical Omissions
 
 - **No testing strategy.** How do you test a multi-rate reactive DAG? The document never mentions unit tests, integration tests, performance tests, or sensory data simulators.
 - **No debugging strategy.** When a DAG node produces the wrong output, how do you trace back to the faulty node? LangGraph is cited for "time-travel debugging" in the AI context, but the sensor DAG has no equivalent.
@@ -34,7 +34,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ## 2. Sensor Fusion (Madgwick + Cloud's Kalman) — Limits and Problems
 
-### Internal Problems
+### 2.1 Internal Problems
 
 **The Madgwick filter with β=0.01–0.02 is not validated for rowing on a phone in a pocket.** Madgwick's original literature tests the filter with rigidly mounted dedicated IMUs. An iPhone in a boat's phone holder is subject to vibration, micro-movements of the phone chassis in the mount, and arbitrary mounting orientations. The recommended β value could be completely inadequate. The document states "validated for rowing" but the validation is for dedicated IMUs, not smartphones.
 
@@ -44,11 +44,11 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **Force estimation via LSTM with "<5% MAE" is a citation without context.** Which dataset? Which boats? How many subjects? How much does it generalize? An LSTM model trained on elite rowers with laboratory instrumentation could have much higher errors on an amateur with an iPhone. The document does not discuss generalizability.
 
-### Unvalidated Assumptions
+### 2.2 Unvalidated Assumptions
 
 **"PCA over several strokes" auto-calibration for the boat's longitudinal axis.** This only works if the acceleration pattern is dominant along the boat's axis — true for a single scull on flat water, much less true for an eight in choppy water where roll, pitch, and yaw are significant. The document does not discuss the conditions in which this calibration fails.
 
-### Critical Omissions
+### 2.3 Critical Omissions
 
 - **No discussion of IMU quality degradation over time.** MEMS accelerometers in phones have significant bias drift with temperature. A 90-minute session under the summer sun alters the sensor characteristics. The document does not provide for periodic recalibrations.
 - **No GPS multi-path management on water.** The GPS signal reflected from the water surface causes specific errors not modeled in the presented Kalman filter.
@@ -56,9 +56,9 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ---
 
-## 2.5. GoPro GPMF and NK SpeedCoach — Limits and Problems
+## 2.5 GoPro GPMF and NK SpeedCoach — Limits and Problems
 
-### Internal Problems
+### 2.5.1 Internal Problems
 
 **The native GPMF parser in Swift is a non-trivial project, and it doesn't exist.** The document says "The GPMF KLV format is simple enough to implement natively," but a robust parser that handles all firmware variants, all GoPro models, all edge cases of nested KLV structures, with correct timestamp handling, is weeks of work and testing. Minimizing this risk is dangerous.
 
@@ -68,7 +68,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **NK SpeedCoach integration depends entirely on manual exports.** The user must: (1) open NK LiNK, (2) export to CSV or FIT, (3) import into the app. There is no direct API. If NK changes the CSV format, the parser breaks silently. The document does not provide for any format break detection mechanism.
 
-### Critical Omissions
+### 2.5.2 Critical Omissions
 
 - **No mention of Garmin/COROS/Polar watches as data sources.** Many rowers use smartwatches, not SpeedCoach. Omitting these devices cuts out a significant part of the potential market.
 - **No import error management.** What happens if the MP4 file is corrupted? If the CSV is truncated? If the FIT has an unsupported version? The document never mentions error handling or user feedback in case of failed import.
@@ -78,7 +78,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ## 3. Pose Estimation — Limits and Problems
 
-### Internal Problems
+### 3.1 Internal Problems
 
 **The document admits that monocular pose estimation has 146–249mm of 3D error and then proposes to use it anyway.** This is commendable honesty but reveals a fundamental problem: with errors of this magnitude, many of the promised "coaching-grade" metrics are unreliable. ±5–8° for trunk inclination means that the difference between good and mediocre technique could fall within the margin of error.
 
@@ -88,11 +88,11 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **"2D angle computation is actually more reliable than 3D" is a selective citation.** ARrow proves it for a perfectly perpendicular side camera. In practice, the camera is never perfectly perpendicular — it's on a moving boat, on an oscillating drone, or on a shore tripod that sees the rower from different angles as they pass. The statement is only true in the ideal case.
 
-### Unvalidated Assumptions
+### 3.2 Unvalidated Assumptions
 
 **`VNDetectHumanBodyPose3DRequest` at 30+ fps on real devices with other tasks running.** The "30+ fps on A14+ chips" benchmark is for the ideal case — no other Neural Engine tasks running, no thermal throttling. With the Madgwick filter, Kalman filter, DAG scheduler, GPS, and video recording all active simultaneously, the Neural Engine is shared. The real framerate of pose estimation could be significantly lower.
 
-### Critical Omissions
+### 3.3 Critical Omissions
 
 - **No discussion of occlusion.** In a real boat, parts of the rower's body are constantly occluded by the oar, legs, moving seat, boat edges. This dramatically degrades pose estimation and is never discussed.
 - **No discussion of lighting conditions.** Sunrise, sunset, backlight, water reflections, spray — all common conditions in rowing that degrade computer vision. The document ignores them completely.
@@ -102,7 +102,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ## 4. Agentic AI and DSL — Limits and Problems
 
-### Internal Problems
+### 4.1 Internal Problems
 
 **The data "92.3% success vs 29.2%" for Prompt2DAG is a single citation from a single 2025 paper.** Basing the entire AI strategy on a single research result is risky. The paper might not be replicable, might apply to domains other than rowing, or might have been measured with favorable metrics.
 
@@ -114,7 +114,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **The cost of cloud AI infrastructure is never mentioned.** GPT-4o and Claude have significant per-token costs. For a consumer app, even a few queries a day multiplied by thousands of users generate significant costs. The document contains no economic model.
 
-### Critical Omissions
+### 4.2 Critical Omissions
 
 - **No fallback strategy when AI fails.** What does the user see when the Pipeline Generation Agent generates an invalid pipeline? When the Coaching Insight Crew produces absurd advice? No Plan B.
 - **No privacy strategy for data sent to the cloud.** A competitive athlete's training data is sensitive. The document does not mention end-to-end encryption, data residency, GDPR compliance, or opting out of cloud AI.
@@ -122,9 +122,9 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ---
 
-## 5. Digital Twin in 4 Tiers — Limits and Problems
+## 5 Digital Twin in 4 Tiers — Limits and Problems
 
-### Internal Problems
+### 5.1 Internal Problems
 
 **Tier 1 (Pacing Calculator) requires "2–3 maximal ergometer efforts" — a requirement that excludes most users.** A maximal effort on the ergometer is painful, requires motivation, and ideally supervision. A consumer user will never do it. Even many competitive athletes do not have recent maximal test data. The document presents this as "weeks to build" without discussing the fact that few users will actually use it.
 
@@ -134,7 +134,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **Tier 4 is a mirage.** A "Full Digital Twin" coupling biomechanical and physiological models is doctoral-level academic research, not an app feature. The document puts it in the "6–12+ months" timeline as if it were an achievable product milestone. It is not.
 
-### Critical Omissions
+### 5.2 Critical Omissions
 
 - **No strategy for longitudinal data collection.** Tier 2+ requires months of consistent data. But users change phones, reinstall apps, forget to sync. How are data gaps handled?
 - **No model validation planned.** How do you verify that the pacing calculator produces correct predictions? That the training load model correlates with real performance? The document does not provide for any validation protocol.
@@ -142,9 +142,9 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ---
 
-## 6. Data Architecture (SQLite + DuckDB) — Limits and Problems
+## 6 Data Architecture (SQLite + DuckDB) — Limits and Problems
 
-### Internal Problems
+### 6.1 Internal Problems
 
 **Two different databases (SQLite + DuckDB) double the complexity.** Every query must know "where" to look. Every update must propagate (or not) between the two. Consistency bugs between Bronze (SQLite) and Gold (DuckDB) are inevitable and hard to diagnose.
 
@@ -154,7 +154,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **CKSyncEngine + Multipeer Connectivity are two different sync systems with different semantics.** CKSyncEngine requires iCloud and connectivity. Multipeer doesn't require internet but doesn't persist. Managing two sync channels is an infinite source of bugs.
 
-### Critical Omissions
+### 6.2 Critical Omissions
 
 - **No backup strategy.** If the user loses their phone, do they lose all Bronze data? Is the video (which is not in iCloud because it's too big) lost forever?
 - **No disk space estimation.** 32MB per IMU session + 4K video (which can be 5–15GB/hour) + DuckDB database. How many sessions fit on a 128GB iPhone? The document doesn't do this calculation.
@@ -163,9 +163,9 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ---
 
-## 7. Three UIs — Limits and Problems
+## 7 Three UIs — Limits and Problems
 
-### Internal Problems
+### 7.1 Internal Problems
 
 **Three UIs are three apps to design, develop, test, and maintain.** The document describes Consumer, Power User (Rack), and Architect (Node Editor) as if they shared underlying code. In practice, a dashboard with KPI cards, an Ableton-style channel-strip interface, and an Orange/KNIME-style node editor have almost zero UI code in common. They are three apps with a shared backend.
 
@@ -175,7 +175,7 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 **Sonification as a "first-class feature" is a risky bet.** Schaffert et al. demonstrate benefits in controlled experimental contexts. In real use, the rower rows with bone-conduction headphones (which few own), upon which the document assumes they listen to a variable pitch for a whole hour. User acceptance of continuous audio feedback during sports activity is not demonstrated outside of research.
 
-### Critical Omissions
+### 7.2 Critical Omissions
 
 - **No design system or mockups.** The document describes three UIs in words but shows no wireframes, no mockups, no prototypes. Without a concrete visualization, it is impossible to evaluate if the ideas work.
 - **No onboarding strategy.** How does a new user understand which tier to use? How do they move from Consumer to Power User?
@@ -183,9 +183,9 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ---
 
-## 8. "What the Current Vision Misses" — Meta-analysis
+## 8 "What the Current Vision Misses" — Meta-analysis
 
-### Internal Problems
+### 8.1 Internal Problems
 
 **This section self-criticizes but does not resolve the criticisms.** The document identifies the battery as a "binding constraint" but then does not recalculate the timeline or resize features to respect it. It identifies that pose estimation is overestimated but then still proposes complex pipelines based on it. The self-criticism is cosmetic, not structural.
 
@@ -199,9 +199,9 @@ This analysis breaks down the document section by section, exposing: (A) interna
 
 ---
 
-## 9. Implementation Phasing — Limits and Problems
+## 9 Implementation Phasing — Limits and Problems
 
-### Internal Problems
+### 9.1 Internal Problems
 
 **The timeline is unrealistically aggressive.** The document proposes to build, in 12 months:
 
@@ -219,7 +219,7 @@ This is the work of a team of 5–8 senior engineers for 18–24 months, not a 1
 
 **Dependencies between phases are not explicit.** Phase 2 depends on the Phase 1 DAG scheduler working perfectly. But if the DAG scheduler reveals structural problems at month 3, the whole Phase 2 slips. The document does not analyze critical paths.
 
-### Critical Omissions
+### 9.2 Critical Omissions
 
 - **No MVP defined.** What is the minimum product that a user would actually use? The document goes straight to the "full vision" without ever defining a slim MVP.
 - **No release strategy.** App Store review, beta testing, TestFlight — nothing is mentioned.
@@ -228,9 +228,9 @@ This is the work of a team of 5–8 senior engineers for 18–24 months, not a 1
 
 ---
 
-## 10. Document Conclusion — Meta-criticism
+## 10 Document Conclusion — Meta-criticism
 
-### Problems with the Conclusion
+### 10.1 Problems with the Conclusion
 
 **"The technology timing is favorable" is the problem, not the solution.** The document lists a series of recent Apple technologies (M5, Foundation Models, VNDetectHumanBodyPose3DRequest, CKSyncEngine, DuckDB) and concludes that "the question is engineering execution." But execution is precisely the weak point of the entire document: no resource estimation, no risk analysis, no contingency plan, no MVP, no budget, no team.
 
@@ -238,38 +238,45 @@ This is the work of a team of 5–8 senior engineers for 18–24 months, not a 1
 
 ---
 
-## Cross-cutting Problems Not Addressed by the Document
+## 11 Cross-cutting Problems Not Addressed by the Document
 
-### 1. Single-Platform Lock-in
+### 11.1 Single-Platform Lock-in
+
 The entire project is Apple-only (Combine, SwiftUI, CoreMotion, Apple Vision, CKSyncEngine, Apple Foundation Models). Zero Android users. This excludes the majority of the global smartphone market. There is no plan for eventual cross-platform expansion — and the architecture makes it practically impossible.
 
-### 2. Total Absence of User Research
+### 11.2 Total Absence of User Research
+
 The document does not cite any interviews, any surveys, any usability tests, any feedback from real rowers or coaches. The three personas (Consumer, Power User, Architect) are theoretical constructs, not based on real data.
 
-### 3. Regulatory and Compliance
+### 11.3 Regulatory and Compliance
+
 - **Medical device?** If the app provides "injury risk monitoring" and "cardiac decoupling detection", it could fall under medical device classification in the EU (MDR) and USA (FDA). The document doesn't talk about it.
 - **GDPR and health data.** Heart rate, training load, VO₂max estimates are health data under GDPR. The document never mentions data protection.
 - **Drones.** Drone use requires registration, insurance, and compliance with local regulations that are often prohibitive. The document cites them as a limitation but doesn't evaluate the legal risk.
 
-### 4. Long-Term Maintenance
+### 11.4 Long-Term Maintenance
+
 The document describes a system with: a custom DAG scheduler, 6+ source adapters, 2 databases, 2 sync systems, 3 UIs, multi-agent AI, pose estimation, GPMF parser, physiological models. Every component requires continuous maintenance. Who does it after release? With what resources?
 
-### 5. Fragility of External Dependencies
+### 11.5 Fragility of External Dependencies
+
 - **GoPro can change the GPMF format** without notice (it's a proprietary format, not a standard).
 - **NK can change the CSV/FIT format** of LiNK.
 - **Apple can deprecate** Combine, change VNDetectHumanBodyPose3DRequest, alter CKSyncEngine behavior.
 - **OpenAI/Anthropic can change** pricing, APIs, or model behavior.
 - No management plan for these dependencies is present in the document.
 
-### 6. Performance on Real Devices
+### 11.6 Performance on Real Devices
+
 The document often cites performance benchmarks for recent A-series/M-series chips. But many users have older iPhones. What is the minimum supported device? What is the degradation on an iPhone 12? The document doesn't talk about it.
 
-### 7. Monetization and Sustainability
+### 11.7 Monetization and Sustainability
+
 Who pays for all this? A one-time payment app? Subscription? Freemium? AI cloud costs are recurring — is there a model that covers them? The document is completely silent on how the project sustains itself economically.
 
 ---
 
-## Final Synthesis
+## 12 Final Synthesis
 
 The "Vision 3.0" document is a top-level intellectual exercise: it demonstrates profound knowledge of scientific literature, Apple APIs, and the rowing domain. As a technical document, it is impressive.
 

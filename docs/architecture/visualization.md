@@ -24,7 +24,7 @@ RDS is a native Apple Swift/SwiftUI greenfield project for rowing analysis. **It
 RDL validated these patterns in production with real data:
 
 | Pattern | RDL Validation | RDS Implementation |
-|---------|----------------|---------------------|
+| ------- | -------------- | ------------------ |
 | **Custom rendering** | No library (Chart.js, Recharts, D3) handles 200Hz at 60fps | Native SwiftUI Canvas API |
 | **LTTB downsampling** | Reduces 60k→2k samples preserving visual features | Algorithm ported to Swift via Accelerate |
 | **Viewport culling** | Only data visible in the temporal range is processed | ViewportCull transform in pipeline |
@@ -39,7 +39,7 @@ RDL validated these patterns in production with real data:
 
 **Technology stack:**
 
-```
+```text
 SwiftUI Canvas API (iOS 15+, macOS 12+)
     ↓
 Core Graphics (drawing primitives)
@@ -155,6 +155,7 @@ struct RowingCanvas: View {
 #### Pros and Cons
 
 **Pros:**
+
 - ✅ **Apple Native**: Official API, optimized for performance
 - ✅ **Declarative**: Testable (validate the data model, not the pixels)
 - ✅ **Automatic Metal**: `.drawingGroup()` uses Metal underneath when needed
@@ -164,6 +165,7 @@ struct RowingCanvas: View {
 - ✅ **Debugging**: Xcode Preview, View Inspector work
 
 **Cons:**
+
 - ⚠️ Requires iOS 15+ / macOS 12+ (acceptable for 2026 MVP)
 - ⚠️ Less fine-grained control vs pure Metal (but sufficient for 200Hz)
 
@@ -255,12 +257,14 @@ let widget = ComposableLineChart(
 #### Pros and Cons
 
 **Pros:**
+
 - ✅ **Zero Duplication**: Smoothing written once, reused by all widgets
 - ✅ **Testability**: Each layer testable independently
 - ✅ **Extensibility**: New widgets = mix & match existing layers
 - ✅ **Maintainability**: Change algorithm = 1 layer, not 14 widgets
 
 **Cons:**
+
 - ⚠️ Initial complexity: Type erasure for AnyDataLayer<Input, Output>
 - ⚠️ Performance overhead from composition (mitigatable with caching)
 
@@ -298,9 +302,11 @@ final class MetalChartRenderer {
 #### Pros and Cons
 
 **Pros:**
+
 - ✅ Theoretical maximum performance
 
 **Cons:**
+
 - ❌ 10x complexity vs SwiftUI Canvas
 - ❌ Shader compilation, GPU memory management
 - ❌ Difficult debugging (RenderDoc, Xcode GPU debugger)
@@ -312,6 +318,7 @@ final class MetalChartRenderer {
 ## 3. Final Recommendation: Option 1 + Layer Pattern (Hybrid)
 
 **Strategy:**
+
 1. **Core rendering**: SwiftUI Canvas API (Option 1)
 2. **Data transforms**: Layer compositional pattern (Option 2)
 3. **Pure Metal**: Only if profiling demonstrates bottleneck (Option 3 as fallback)
@@ -486,7 +493,7 @@ struct RowingDeskCanvas: View {
 ### 3.2 Hybrid Architecture Benefits
 
 | Aspect | Benefit |
-|---------|-----------|
+| ------ | ------- |
 | **Performance** | SwiftUI Canvas + `.drawingGroup()` = Automatic Metal when needed |
 | **Reusability** | Composable transform pipelines → zero duplicate smoothing/LTTB |
 | **Testability** | Pure data transforms → easy unit tests; render validation via snapshot |
@@ -500,7 +507,7 @@ struct RowingDeskCanvas: View {
 ## 4. Patterns Confirmed from RDL → Swift Port
 
 | RDL Pattern | Swift Implementation |
-|-------------|----------------------|
+| ----------- | ------------------ |
 | **Dual-layer rendering** | Static Canvas + separate CursorOverlay (`allowsHitTesting: false`) |
 | **LTTB downsampling** | Algorithm ported to Swift using Accelerate for SIMD |
 | **Viewport culling** | `ViewportCull` transform in the pipeline |
@@ -512,7 +519,7 @@ struct RowingDeskCanvas: View {
 
 ## 5. Critical Files to Create
 
-```
+```text
 RowingSuperApp/
 ├── app/
 │   ├── Rendering/
@@ -553,12 +560,14 @@ RowingSuperApp/
 **Objective**: Validate that SwiftUI Canvas + `.drawingGroup()` reaches 60fps target
 
 **Methodology**:
+
 1. Benchmark SwiftUI Canvas vs pure Metal on real dataset (60k samples)
 2. Measure frame time during continuous scrubbing with 10 simultaneous widgets
 3. **Target**: <16ms per frame (60fps)
 4. **Only if it fails**: Consider pure Metal (Option 3)
 
 **Test setup**:
+
 ```swift
 func testRenderingPerformance() {
     let samples = generateTestData(count: 60_000) // 5 min @ 200Hz
@@ -583,6 +592,7 @@ func testRenderingPerformance() {
 **Objective**: Verify zero code duplication between widgets
 
 **Test case**:
+
 1. Create 3 widgets (BasicLine, GradientLine, Area) using shared pipeline
 2. Modify `AdaptiveSmooth` (e.g. change Gaussian sigma)
 3. Verify: change reflects in all widgets without individual modifications
@@ -631,6 +641,7 @@ func testBasicLineChartSnapshot() {
 ### 7.1 SoA Format in Swift
 
 **Options**:
+
 - `ContiguousArray<Float>`: Safer, ARC-managed, Swift-friendly API
 - `UnsafeMutableBufferPointer<Float>`: Zero-copy with Accelerate, maximum performance
 
@@ -639,11 +650,13 @@ func testBasicLineChartSnapshot() {
 ### 7.2 Transform Pipeline Caching
 
 **Invalidation Strategy**:
+
 - **Viewport change** → re-run `ViewportCull` + downstream transforms
 - **Config change** (e.g. smoothing sigma) → re-run from that transform onwards
 - **Raw data change** → re-run entire pipeline
 
 **Implementation**:
+
 ```swift
 struct CachedPipeline {
     private var cache: [CacheKey: [Float]] = [:]
@@ -686,6 +699,7 @@ struct SessionDocument: Codable {
 **Test on target hardware**: iPad Pro M2 with 10 simultaneous widgets
 
 **Metrics**:
+
 - Frame time during scrubbing (target: <16ms)
 - Memory footprint (60k samples × 10 widgets)
 - Battery drain during 30-minute analysis session
@@ -695,7 +709,7 @@ struct SessionDocument: Codable {
 ## 8. Key Differences vs RDL
 
 | Aspect | RDL (TypeScript/Web) | RDS (Swift/Native) |
-|---------|----------------------|---------------------|
+| ------ | -------------------- | ------------------ |
 | **Rendering** | Manual 2D Canvas API | Declarative SwiftUI Canvas API |
 | **Architecture** | Each Lens = isolated silo | Shared Transform Pipelines |
 | **Code Duplication** | 14 smoothing implementations | 1 reused implementation |
@@ -718,6 +732,7 @@ The proposed hybrid architecture (SwiftUI Canvas + Transform Pipeline) represent
 - **Extensible for the future** (14+ widget types, custom user widgets)
 
 **Next steps**:
+
 1. BasicLineChart prototype with SwiftUI Canvas
 2. Implement LTTB in Swift using Accelerate
 3. Performance benchmark vs 60fps target

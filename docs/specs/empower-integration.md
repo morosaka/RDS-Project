@@ -9,6 +9,7 @@ Integrating these sensors into RowData Studio (RDS) bridges the gap between **In
 **Feasibility Assessment:** ✅ **HIGH** - CSV integration is straightforward and aligns with RDS architecture. ANT+ live capture deferred to post-MVP.
 
 ## 2. Sensor Ecosystem
+
 - **Hardware**: Empower Oarlock (Single or Pairs).
 - **Communication**: ANT+ (Proprietary Profile).
 - **Receiver**: NK SpeedCoach GPS 2 (requires Training Pack firmware).
@@ -17,6 +18,7 @@ Integrating these sensors into RowData Studio (RDS) bridges the gap between **In
 ## 3. Data Extraction Constraints
 
 **CRITICAL:** A fundamental technical constraint has been verified:
+
 - **FIT Files**: Standard .FIT files exported by the SpeedCoach **DO NOT** contain Empower Oarlock data. This is a confirmed limitation ([NK Sports Documentation](https://nksports.com/support/empower-oarlock/)).
 - **CSV Export**: The **NK LiNK Logbook CSV export** is the **only** reliable source for per-stroke biomechanical data (13 metrics total).
 - **Data Granularity**: CSV provides stroke-by-stroke detail with session summary, interval summary, and stroke-level data ([Rowsandall Analysis](https://analytics.rowsandall.com/2019/03/27/rowsandall-and-the-empower-oarlock-part-1-intervals-flex-charts-and-force-curves/)).
@@ -28,7 +30,7 @@ Integrating these sensors into RowData Studio (RDS) bridges the gap between **In
 RDS will map all available Empower metrics to internal nomenclature:
 
 | NK CSV Column | RDS Nomenclature | Unit | Description |
-|---------------|------------------|------|-------------|
+| ------------- | ---------------- | ---- | ----------- |
 | Catch Angle | `mech_ext_str_angle_catch` | degrees | Oar angle at blade entry |
 | Finish Angle | `mech_ext_str_angle_finish` | degrees | Oar angle at blade exit |
 | Slip | `mech_ext_str_eval_slip` | degrees | Angle lost during catch phase |
@@ -46,6 +48,7 @@ RDS will map all available Empower metrics to internal nomenclature:
 ### 4.2 CSV File Structure
 
 **Header Section:**
+
 ```csv
 Session Summary
 Date, Start Time, Duration, Total Strokes, Avg Split, Avg SR, ...
@@ -61,11 +64,13 @@ Stroke #, Elapsed Time, Distance, Split, SR, Catch Angle, Finish Angle, ...
 ```
 
 **Example Stroke Row:**
+
 ```csv
 123, 00:05:34.2, 1234.5, 2:15.3, 32, -52.3, 38.7, 2.1, 1.5, 485.2, 398.6, 28.4, 325, 285, 145, 91.0, 87.4, 32
 ```
 
 **Critical Parsing Considerations:**
+
 - **Multi-section format**: Session summary → Interval summary → Stroke detail
 - **Unit validation**: Force may be in N or lbs, angles in degrees or radians (rare)
 - **Missing values**: Possible for dropouts (ANT+ link loss)
@@ -79,7 +84,7 @@ Stroke #, Elapsed Time, Distance, Split, SR, Catch Angle, Finish Angle, ...
 
 Inspired by FIT SDK pattern, the CSV SDK separates generic CSV parsing (RFC 4180) from vendor-specific interpretation:
 
-```
+```text
 csv-swift-sdk-main/
 ├── Sources/CSVSwiftSDK/
 │   ├── CSVParser.swift              # Generic RFC 4180 parser
@@ -94,6 +99,7 @@ csv-swift-sdk-main/
 ```
 
 **Generic Parser (CSVParser.swift):**
+
 ```swift
 public struct CSVParser {
     public init() {}
@@ -116,6 +122,7 @@ public struct CSVParser {
 ```
 
 **Profile Protocol:**
+
 ```swift
 public protocol CSVProfile {
     associatedtype SessionType: Codable
@@ -132,6 +139,7 @@ public protocol CSVProfile {
 ```
 
 **NK Empower Profile (NKEmpowerProfile.swift):**
+
 ```swift
 public struct NKEmpowerProfile: CSVProfile {
     public typealias SessionType = NKEmpowerSession
@@ -244,6 +252,7 @@ public struct StrokeData: Codable {
 ```
 
 **Usage in App:**
+
 ```swift
 import CSVSwiftSDK
 
@@ -263,6 +272,7 @@ if !warnings.isEmpty {
 ```
 
 **Benefits of Generic Architecture:**
+
 1. **Reusability**: Same parser for NK, Garmin, Peach, future vendors
 2. **Extensibility**: New CSV source = new profile (< 200 lines code)
 3. **Testability**: Generic parser tested once, profiles tested independently
@@ -286,6 +296,7 @@ Since Empower data is **per-stroke** (LF scale) and GoPro is **200Hz** (HF scale
    - Flag discrepancies for user review
 
 3. **Temporal Mapping:**
+
    ```swift
    func mapStrokeToVideoTime(stroke: StrokeData, offset: TimeInterval) -> TimeInterval {
        return stroke.elapsedTime + offset
@@ -293,6 +304,7 @@ Since Empower data is **per-stroke** (LF scale) and GoPro is **200Hz** (HF scale
    ```
 
 **Integration with SessionDocument:**
+
 ```swift
 struct SessionDocument: Codable {
     // ... existing fields
@@ -304,12 +316,14 @@ struct SessionDocument: Codable {
 ### Phase C: Data Validation & Cross-Correlation
 
 **Validation Strategy:**
+
 1. **Stroke Count Agreement**: NK stroke count vs. FusionEngine stroke count (±5%)
 2. **Power Correlation**: Compare NK Average Power with RDS derived power from `velocity × force_estimate`
 3. **Angle Plausibility**: Reject outliers (catch angle > -30° or < -70°, etc.)
 4. **Missing Data Handling**: ANT+ dropouts → `nil` values in Swift, rendered as gaps in UI
 
 **Test Data Generation:**
+
 ```swift
 func createMockEmpowerData(strokeCount: Int = 500) -> NKEmpowerSession {
     // Generate synthetic data with known characteristics for testing
@@ -348,6 +362,7 @@ func createMockEmpowerData(strokeCount: Int = 500) -> NKEmpowerSession {
 ### 6.1 Peach PowerLine
 
 **System Overview:**
+
 - **Manufacturer:** [Peach Innovations](http://www.peachinnovations.com/)
 - **Technology:** Proprietary oarlock with precision strain gauges (replaces Concept2 oarlock)
 - **Metrics:** Forces, angles, speeds, boat motion, optional stretcher force and seat position
@@ -371,6 +386,7 @@ func createMockEmpowerData(strokeCount: Int = 500) -> NKEmpowerSession {
 ### 7.1 Technical Constraints
 
 **iOS/macOS ANT+ Limitations ([THIS IS ANT Documentation](https://www.thisisant.com/developer/ant/starting-your-project)):**
+
 - **No Native Support**: iOS/macOS lack native ANT+ radio hardware
 - **Bridge Required**: Must use third-party USB dongle (e.g., Wahoo RFLKT+, Garmin ANT+ adapter)
 - **SDK Availability**:
@@ -379,6 +395,7 @@ func createMockEmpowerData(strokeCount: Int = 500) -> NKEmpowerSession {
   - Third-party libraries exist but unmaintained
 
 **Complexity Assessment:**
+
 - **Hardware Dependency**: Requires USB-C dongle → excludes iPad/iPhone without adapter
 - **Licensing**: ANT+ Alliance membership required for commercial use
 - **Development Effort**: 3-6 months for stable implementation
@@ -387,12 +404,14 @@ func createMockEmpowerData(strokeCount: Int = 500) -> NKEmpowerSession {
 ### 7.2 Recommendation: Defer to Post-MVP
 
 **Rationale:**
+
 1. **CSV workflow is sufficient**: 95% of users export sessions post-training (not real-time)
 2. **Hardware friction**: Dongle requirement reduces value proposition
 3. **Development ROI**: Low compared to core features (video sync, fusion engine, AI analysis)
 4. **Market trend**: Industry moving toward Bluetooth LE (future Empower versions may support BLE)
 
 **If Pursued Later:**
+
 - Evaluate Wahoo SDK + adapter bundle
 - Consider BLE bridge devices (ANT+ → BLE converter)
 - Monitor for native BLE support in future Empower hardware
@@ -402,6 +421,7 @@ func createMockEmpowerData(strokeCount: Int = 500) -> NKEmpowerSession {
 ### 8.1 Unit Tests
 
 **Generic Parser Tests (`CSVParserTests.swift`):**
+
 ```swift
 @Suite("Generic CSV Parser")
 struct CSVParserTests {
@@ -423,6 +443,7 @@ struct CSVParserTests {
 ```
 
 **NK Empower Profile Tests (`NKEmpowerProfileTests.swift`):**
+
 ```swift
 @Suite("NK Empower Profile")
 struct NKEmpowerProfileTests {
@@ -494,11 +515,13 @@ struct EmpowerSyncTests {
 ### 8.3 Real-World Validation
 
 **Test Dataset Requirements:**
+
 - ✅ **Minimum 10 sessions** with paired GoPro + NK Empower data
 - ✅ **Variety:** Sculling/sweep, calm/rough water, steady-state/intervals
 - ✅ **Ground Truth:** Manual event markers (e.g., "start of 1000m piece")
 
 **Validation Metrics:**
+
 - Sync accuracy: <2s temporal offset (user-acceptable threshold)
 - Stroke count agreement: ±5% (NK vs. RDS FusionEngine)
 - Power correlation: R² > 0.7 (NK power vs. RDS derived power)
@@ -506,12 +529,14 @@ struct EmpowerSyncTests {
 ## 9. Implementation Roadmap
 
 ### Phase 0: CSV SDK Foundation (Week 1-2)
+
 - [ ] `csv-swift-sdk-main/` package setup (SPM)
 - [ ] `CSVParser.swift`: Generic RFC 4180 parser with unit tests
 - [ ] `CSVProfile` protocol definition
 - [ ] Basic test fixtures (valid/invalid CSV files)
 
 ### Phase 1: NK Empower Profile + Integration (Month 1-2)
+
 - [ ] `NKEmpowerProfile.swift`: 13-metric parser with unit tests
 - [ ] Unit conversion logic (lbs→N, rad→deg)
 - [ ] Validation rules (angles, temporal monotonicity)
@@ -520,17 +545,20 @@ struct EmpowerSyncTests {
 - [ ] Simple table widget: Display stroke metrics
 
 ### Phase 2: Visualization (Month 3-4)
+
 - [ ] `ForceCurveWidget.swift`: Real-time force/angle plot
 - [ ] `TechniqueRadarWidget.swift`: Efficiency visualization
 - [ ] `ForceAccelCorrelationWidget.swift`: Cross-sensor analysis
 
 ### Phase 3: Validation & Polish (Month 5-6)
+
 - [ ] Real-world testing with 10+ paired datasets
 - [ ] Cross-correlation validation metrics
 - [ ] User documentation and tutorial videos
 - [ ] Export enhancements: Include Empower data in PDF reports
 
 ### Phase 4: Advanced Features (Post-MVP)
+
 - [ ] Peach PowerLine CSV support (if user demand exists)
 - [ ] ANT+ live capture (evaluate BLE bridge option)
 - [ ] ML-based technique scoring using Empower + IMU fusion
@@ -551,7 +579,7 @@ struct EmpowerSyncTests {
 ### 10.2 Technical Risks
 
 | Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
+| ---- | ------ | ----------- | ---------- |
 | CSV format changes | High | Low | Versioned parser with fallback |
 | GPS sync failure (poor satellite coverage) | Medium | Medium | Manual alignment UI fallback |
 | Stroke count mismatch (>10%) | Medium | Low | Flag for user review, allow manual override |
@@ -560,6 +588,7 @@ struct EmpowerSyncTests {
 ## 11. Success Criteria
 
 **MVP Success Metrics:**
+
 - ✅ Parse 95%+ of real-world NK LiNK CSV exports without error
 - ✅ Achieve <2s temporal sync accuracy with GoPro video
 - ✅ Stroke count agreement ±5% between NK and RDS FusionEngine
@@ -567,16 +596,17 @@ struct EmpowerSyncTests {
 - ✅ Zero crashes when handling malformed CSV data
 
 **User Satisfaction:**
+
 - ✅ Coaches report "game-changing" insight from force + video integration
 - ✅ Export workflow (CSV import → sync → analysis) takes <5 minutes per session
 
 ---
 
 ## Sistemi Alternativi
+
 - Peach PowerLine: Maggiore accuracy (research-backed), ma format proprietario
 - SmartOar, XBoat, ActiveSpeed: Alternative minori
 - Raccomandazione: NK Empower per MVP, Peach se richiesto da utenti
-
 
 ## References
 
@@ -594,6 +624,7 @@ struct EmpowerSyncTests {
 *Last Updated By: Claude Sonnet 4.5*
 
 **Revision History:**
+
 - v1.0.0 (2026-02-28): Initial proposal
 - v2.0.0 (2026-03-01): Added CSV format details, ANT+ feasibility analysis, Peach PowerLine comparison, comprehensive implementation roadmap, testing strategy, validation metrics, and risk assessment
 - v3.0.0 (2026-03-01): **ARCHITECTURE CHANGE** - Replaced specific `NKEmpowerParser` with generic `csv-swift-sdk-main` module using profile pattern (inspired by FIT SDK). Supports multiple vendors (NK Empower, Garmin, Peach) with single parser + vendor-specific profiles. Updated code examples, testing strategy, and roadmap to reflect modular architecture.

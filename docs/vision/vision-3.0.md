@@ -1,4 +1,5 @@
 # The Rowing Super App: Vision 3.0 Architecture
+
 ## Unified Reactive Graph Engine Fusing 200Hz IMU Telemetry, Monocular Pose Estimation, and Physiological Data on Apple Silicon
 
 **A unified reactive graph engine fusing 200Hz IMU telemetry, monocular pose estimation, and physiological data—delivered through a three-tier progressive UI with agentic AI—can be built today on Apple silicon, but only if the architecture treats the stroke as its atomic unit, the DAG as a multi-rate hierarchy, and the digital twin as an incremental capability earned through data accumulation.** This evolved framework redefines the original vision's nine domains with concrete technology choices, validated algorithms, and a phased build sequence grounded in what Apple hardware actually supports in 2025–2026. The strongest aspects of the current vision—the DAG/whiteboard concept and tiered user model—survive largely intact. The weakest—the digital twin aspiration and pose estimation accuracy expectations—require significant recalibration.
@@ -85,7 +86,7 @@ The NK SpeedCoach GPS Model 2 is the industry-standard performance monitor in co
 This has proven particularly hard to reconcile with the fixed-rate streams from other sources. A 60-minute session generates:
 
 | Source | Nominal Rate | Measured Rate | Samples/Hour | Timing |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | GoPro ACCL | "~200 Hz" | 197–199 Hz* | ~710,000* | Fixed (per file) |
 | GoPro GYRO | "up to 400 Hz" | 197–199 Hz* | ~710,000* | Fixed (per file, often = ACCL rate) |
 | GoPro GPS | "18 Hz" | ~10 Hz* | ~36,000* | Fixed but unreliable |
@@ -118,7 +119,7 @@ The per-stroke summary table in the Silver layer (Section 6) becomes even more c
 The Bronze layer's Source Adapter pattern must include at minimum:
 
 | Adapter | Input Format | Output Streams | Timing Model |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GoPro_GPMF` | MP4 file (GPMF track) | ACCL, GYRO, GRAV, GPS5 | Post-session, per-file discovered rates |
 | `CoreMotion_Live` | iOS CMMotionManager | ACCL, GYRO, GPS | Real-time, fixed rate |
 | `NK_SpeedCoach_CSV` | CSV (via LiNK export) | Speed, Rate, Distance, HR, Power* | Post-session, stroke-sampled |
@@ -145,6 +146,7 @@ On a rowing boat, however, the only practical fixed camera positions are **bow-f
 This means the document must be honest about **what each view can and cannot measure**:
 
 **Frontal/Dorsal view (on-boat GoPro, bow or stern mount):**
+
 - ✅ Shoulder height symmetry (left vs. right, critical in sculling)
 - ✅ Lateral body sway / lean
 - ✅ Hand height differential at catch and finish
@@ -158,6 +160,7 @@ This means the document must be honest about **what each view can and cannot mea
 - ❌ Layback progression through the drive
 
 **Lateral/Side view (required for sagittal-plane biomechanics):**
+
 - ✅ Trunk inclination / layback angle (largest angular range, most reliable measurement)
 - ✅ Hip flexion (primary power generation indicator)
 - ✅ Body preparation sequence on recovery

@@ -16,7 +16,7 @@ virtual reference. Physical changes occur only in the explicit "export/triage" p
 
 The fundamental work unit. A JSON/Codable document describing an analysis session.
 
-```
+```text
 SessionDocument
 |-- metadata
 |   |-- id: UUID
@@ -112,7 +112,7 @@ struct TelemetrySidecar: Codable, Sendable {
 **Size Estimates (5-minute trim, 300s):**
 
 | Stream | Freq | Samples | Bytes/sample | Total |
-|--------|------|---------|-------------|-------|
+| ------ | ---- | ------- | ------------ | ----- |
 | ACCL | 200Hz | 60,000 | 32 | 1.9 MB |
 | GYRO | 200Hz | 60,000 | 32 | 1.9 MB |
 | GPS | 10Hz | 3,000 | 48 | 0.1 MB |
@@ -123,7 +123,8 @@ struct TelemetrySidecar: Codable, Sendable {
 Comparison: trimmed video = ~300 MB (HEVC). Sidecar is ~1% of video size.
 
 **Naming Convention:**
-```
+
+```text
 GX030230_trim_120s_385s.mp4           <-- trimmed video
 GX030230_trim_120s_385s.telemetry     <-- telemetry sidecar
 ```
@@ -137,10 +138,11 @@ The pair (video + sidecar) is atomic: always created, moved, and deleted togethe
 For high-performance analysis, sensor data in memory uses **Structure of Arrays (SoA)** instead of Array of Structs (AoS).
 
 **Why SoA:**
+
 - AoS: iterating on one field (e.g. all acc_x) causes cache misses (jumps over 40+ fields per struct)
 - SoA: all values of one field are contiguous -> optimal cache line, SIMD-friendly, Accelerate-compatible
 
-```
+```text
 SensorDataBuffers
 |-- size: Int                              // total samples (~140k for 711s)
 |-- timestamp: ContiguousArray<Double>     // relative time in ms (Float64)

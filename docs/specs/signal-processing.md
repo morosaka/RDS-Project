@@ -17,7 +17,7 @@ hardware acceleration on Apple Silicon.
 ## Core Functions (MVP Priority)
 
 | RDL Function | Description | Swift/Accelerate Approach |
-|-------------|-------------|--------------------------|
+| ------------ | ----------- | ------------------------- |
 | `detrend(signal, windowSize)` | Removes baseline (moving average) | `vDSP.subtract` + rolling mean |
 | `integrate(values, dt)` | Cumulative integration (trapezoidal) | Loop with `vDSP.add` |
 | `derivative(values, dt)` | Numerical derivative (finite difference) | `vDSP.subtract` + scale |
@@ -31,7 +31,7 @@ hardware acceleration on Apple Silicon.
 ## Detection Functions (MVP Priority)
 
 | RDL Function | Description | Port Notes |
-|-------------|-------------|------------|
+| ------------ | ----------- | ---------- |
 | `detectStrokes(timestamps, vel, acc)` | Stroke detection state machine | Direct port, logic-heavy (not vDSP) |
 | `detectZeroCrossings(signal)` | Finds zero crossings | Simple loop |
 | `detectLocalMinima(signal)` | Finds local minima | Loop with 3-point comparison |
@@ -39,7 +39,7 @@ hardware acceleration on Apple Silicon.
 ## Statistical Functions
 
 | RDL Function | Description | Swift Approach |
-|-------------|-------------|----------------|
+| ------------ | ----------- | -------------- |
 | `mean(values)` | Arithmetic mean | `vDSP.mean` |
 | `median(values)` | Median | Sort + middle index |
 | `standardDeviation(values)` | Standard deviation | `vDSP.standardDeviation` |
@@ -48,7 +48,7 @@ hardware acceleration on Apple Silicon.
 ## Search and Interpolation Functions
 
 | RDL Function | Description | Swift Approach |
-|-------------|-------------|----------------|
+| ------------ | ----------- | -------------- |
 | `binarySearchFloor(arr, target)` | Index of value <= target | `Collection.partitioningIndex` |
 | `interpolateAt(series, targetTime)` | Linear interpolation at arbitrary time | Direct port |
 | `getNearestValue(series, time)` | Nearest value by timestamp | Binary search + comparison |

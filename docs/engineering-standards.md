@@ -74,7 +74,7 @@ Intent Engineering encodes organizational purpose into infrastructure that AI ag
 
 When an agent makes a significant design decision (choosing between approaches, interpreting an ambiguous requirement, resolving a trade-off), it should record the decision in the session log using this format:
 
-```
+```text
 **Decision:** [What was decided]
 **Alternatives considered:** [What else was possible]
 **Rationale:** [Why this choice, referencing INTENT.md values if applicable]
@@ -100,6 +100,7 @@ Specification Engineering is the practice of writing documents that autonomous a
 ### 3.1 Principles
 
 **Executable precision.** A specification is only useful if an agent can read it and produce working code without asking clarifying questions. This means:
+
 - Every algorithm includes all constants with their calibrated values
 - Every data model includes all fields with their types
 - Every pipeline specifies the order of operations and why it matters
@@ -128,6 +129,7 @@ A well-formed specification contains:
 When a Planner Agent dispatches sub-agents for multi-session implementation:
 
 **Before dispatching:**
+
 1. Read all pending session logs in `.claude/session-logs/`
 2. Verify git working tree is clean
 3. Identify the current phase in the implementation plan
@@ -135,6 +137,7 @@ When a Planner Agent dispatches sub-agents for multi-session implementation:
 5. Provide each sub-agent with: the relevant spec file(s), its file scope, and the verification criteria
 
 **During each sub-agent session:**
+
 1. Read assigned spec file(s) and module CLAUDE.md
 2. Read CONVENTIONS.md before writing code
 3. Read INTENT.md before making any design decision
@@ -143,6 +146,7 @@ When a Planner Agent dispatches sub-agents for multi-session implementation:
 6. Write session log before ending
 
 **After all sub-agents complete:**
+
 1. Planner reads all session logs
 2. Runs integration build and tests across all affected modules
 3. Checks for file ownership violations (did sub-agents stay in scope?)
@@ -152,6 +156,7 @@ When a Planner Agent dispatches sub-agents for multi-session implementation:
 ### 3.4 Progress Tracking
 
 **Session logs** (`.claude/session-logs/`) are the project's institutional memory across agent sessions. They answer:
+
 - What was done in each session?
 - What decisions were made, and why?
 - What is blocked or needs human input?
@@ -176,7 +181,7 @@ When a Planner Agent dispatches sub-agents for multi-session implementation:
 
 ### 4.1 The Hierarchy
 
-```
+```text
 Specification (what to build, how, verified)
     |
     +-- Intent (why, trade-offs, boundaries)

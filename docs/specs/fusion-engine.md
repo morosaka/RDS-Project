@@ -17,7 +17,7 @@ The FusionEngine is the computational heart of RDS. It transforms raw multi-sour
 
 ## Pipeline (6 steps, rigorous order)
 
-```
+```text
 STEP 0: Tilt Bias ──────────  avgImuSurge - avgGpsAccel -> bias in G
                                (See sync-pipeline.md STEP 0 for detail)
 
@@ -57,7 +57,7 @@ STEP 4: Per-Stroke Aggregation
 ## Key Constants
 
 | Constant | Value | Step | Notes |
-|----------|-------|------|-------|
+| -------- | ----- | ---- | ----- |
 | Gaussian sigma | 4 | 1.5 | Physics prep smoothing |
 | Complementary alpha | 0.999 | 2 | Heavy IMU trust (GPS updates infrequent) |
 | Zero-phase window | 15 samples | 3 | Velocity smoothing for stroke detection |
