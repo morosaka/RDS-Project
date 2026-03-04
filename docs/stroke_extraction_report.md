@@ -3,6 +3,7 @@
 Questa relazione descrive in dettaglio il processo di fusione dati e di estrazione dei colpi implementato nella classe [FusionEngine](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/services/FusionEngine.ts#140-418) e nel modulo matematico [mathUtils.ts](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts).
 
 ## 1. Architettura Generale
+
 L'intero processo è governato dalla funzione statica `FusionEngine.process()`, che prende in input i dati estratti dal file GPMF (accelerometro, giroscopio, GPS, gravità), eventuali dati FIT sincronizzati (cardio, cadenza, potenza) e popola una struttura dati ad altissime prestazioni detta **SoA (Structure of Arrays)**.
 
 ## 2. Passi Eseguiti nell'Elaborazione
@@ -22,11 +23,13 @@ L'intero processo è governato dalla funzione statica `FusionEngine.process()`, 
 ## 3. Metriche Coinvolte nel Rilevamento
 
 Il rilevamento in se fa ampiamente uso delle seguenti metriche pre-elaborate:
+
 - **`timestamp`**: Asse temporale millisecondo relativo.
 - **`fus_cal_ts_vel_inertial` (Velocità Inerziale - Complementary Filter)**: La derivazione per l'individuazione di picchi e valli primari. Serve a evitare l'under-detection tipico del rumore degli accelerometri sulle barche.
 - **`imu_raw_ts_acc_surge` e `imu_flt_ts_acc_surge` (Accelerazioni Y)**: Tracce di Surge usate come validatori secondari: l'accelerazione deve rispettare precise pattern morfologiche (accelerazione rapida all'inizio del drive) per evitare l'over-detection (es. onde).
 
 Nelle fasi successive vengono aggregate per calcolare:
+
 - `strokeRate`: Colpi al minuto.
 - `distance` (DPS): Distanza percorsa nel colpo.
 - `speedAvg` / `speedMax`: Velocità espressa nel colpo.
@@ -164,6 +167,7 @@ export const detectStrokes = (timestamps: NumericArray, inertialVel: NumericArra
 ```
 
 ### B) Analisi delle Fasi: [analyzeStrokePhases](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#765-828)
+>
 > Divide la remata calcolando l'istante in cui l'accelerazione crolla sotto lo zero.
 
 ```typescript
@@ -200,6 +204,7 @@ export const analyzeStrokePhases = (strokes: StrokeEvent[], surgeAccel: NumericA
 ```
 
 ### C) Aggregazione Metriche Colpo: [calculateStrokeAggregates](file:///Volumes/WDSN770/Projects/Antigravity/rowdatalab_v0.29.0/common/mathUtils.ts#831-1002)
+>
 > Scorre la finestra temporale che pertiene ad ogni colpo, ricreando i valori medi e di picco.
 *(Per brevità di documentazione la funzione analizza le strutture SoA ed AoS ed assorbe tramite iterazione l'identificazione di massimi, minimi e medie e fa un check di nearest array neighbor in assenza di dati FIT).*
 

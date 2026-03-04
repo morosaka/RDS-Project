@@ -5,8 +5,9 @@
 // Fusion engine diagnostic output: tilt bias, lag, confidence metrics.
 // Used for quality assessment and troubleshooting.
 //
-// Version: 1.0.0 (2026-03-01)
+// Version: 1.1.0 (2026-03-03)
 // Revision History:
+//   2026-03-03: Add cadenceAgreement for FIT cross-validation.
 //   2026-03-01: Initial implementation (Phase 1: Data Models)
 //
 // Source: docs/specs/fusion-engine.md §Diagnostics
@@ -55,6 +56,13 @@ public struct FusionDiagnostics: Codable, Sendable, Hashable {
     /// From SignMatch correlation peak. Expected: <100ms.
     public let imuGpsLagMs: Double?
 
+    /// Fraction of detected strokes whose rate agrees with FIT cadence (0.0–1.0)
+    ///
+    /// Computed by comparing `StrokeEvent.strokeRate` against interpolated
+    /// FIT cadence at each stroke's midpoint. Agreement threshold: ±3 SPM.
+    /// `nil` if no FIT cadence data available.
+    public let cadenceAgreement: Double?
+
     /// Timestamp when diagnostics were computed
     public let timestamp: Date
 
@@ -70,6 +78,7 @@ public struct FusionDiagnostics: Codable, Sendable, Hashable {
         validStrokeCount: Int? = nil,
         avgStrokeRate: Double? = nil,
         imuGpsLagMs: Double? = nil,
+        cadenceAgreement: Double? = nil,
         timestamp: Date = Date(),
         warnings: [String] = []
     ) {
@@ -81,6 +90,7 @@ public struct FusionDiagnostics: Codable, Sendable, Hashable {
         self.validStrokeCount = validStrokeCount
         self.avgStrokeRate = avgStrokeRate
         self.imuGpsLagMs = imuGpsLagMs
+        self.cadenceAgreement = cadenceAgreement
         self.timestamp = timestamp
         self.warnings = warnings
     }

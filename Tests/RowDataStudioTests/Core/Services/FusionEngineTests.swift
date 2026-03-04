@@ -134,7 +134,7 @@ struct FusionEngineTests {
         #expect(result.diagnostics.gpsQuality != nil)
         #expect(result.diagnostics.imuQuality != nil)
         #expect(result.processingDuration >= 0)
-        #expect(result.algorithmVersion == "1.0.0")
+        #expect(result.algorithmVersion == FusionConstants.algorithmVersion)
     }
 
     @Test("Pitch and roll are computed from gravity")

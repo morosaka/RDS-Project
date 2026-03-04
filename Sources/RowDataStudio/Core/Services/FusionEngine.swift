@@ -1,9 +1,11 @@
-// Core/Services/FusionEngine.swift v1.0.0
+// Core/Services/FusionEngine.swift v1.1.0
 /**
  * 6-step fusion pipeline orchestrator.
  * Transforms raw multi-source data into analyzable buffers, stroke events,
  * and per-stroke statistics.
  * --- Revision History ---
+ * v1.1.0 - 2026-03-03 - Pass surgeAccel to stroke detection; add FIT cadence
+ *          cross-validation diagnostic.
  * v1.0.0 - 2026-03-02 - Initial implementation (Phase 3: Sync + Fusion).
  */
 
@@ -80,8 +82,8 @@ public struct FusionEngine {
         )
 
         // 2e) Synchronize FIT records
+        let fitOffsetMs = syncOutput.fitGpmfSync.offset * 1000.0
         if let fit = fitTimeSeries {
-            let fitOffsetMs = syncOutput.fitGpmfSync.offset * 1000.0
             interpolateFit(
                 buffers: buffers,
                 fitTimeSeries: fit,
@@ -112,11 +114,12 @@ public struct FusionEngine {
             initialVelocity: initialVelocity
         )
 
-        // STEP 3: Stroke Detection
+        // STEP 3: Stroke Detection (multi-validated)
         let sampleRate = FusionConstants.imuSampleRate
         let strokes = DSP.detectStrokes(
             timestampsMs: buffers.timestamp,
             velocity: buffers.fus_cal_ts_vel_inertial,
+            surgeAccel: buffers.imu_flt_ts_acc_surge,
             sampleRate: sampleRate
         )
 
@@ -135,6 +138,24 @@ public struct FusionEngine {
             buffers: buffers
         )
 
+        // FIT cadence cross-validation
+        var cadenceAgreement: Double? = nil
+        var mutableWarnings = warnings
+        if let fit = fitTimeSeries {
+            cadenceAgreement = validateStrokeRateWithCadence(
+                strokes: strokes,
+                fitTimeSeries: fit,
+                fitOffsetMs: fitOffsetMs,
+                bufferTimestamps: buffers.timestamp
+            )
+            if let agreement = cadenceAgreement, agreement < 0.5, !strokes.isEmpty {
+                mutableWarnings.append(
+                    "Stroke rate disagrees with FIT cadence: "
+                    + "only \(Int(agreement * 100))% of strokes match (±\(Int(FusionConstants.strokeDetCadenceToleranceSPM)) SPM)"
+                )
+            }
+        }
+
         // Build diagnostics
         let validStrokes = strokes.filter(\.isValid)
         let avgStrokeRate = validStrokes.isEmpty ? nil
@@ -151,7 +172,8 @@ public struct FusionEngine {
             validStrokeCount: validStrokes.count,
             avgStrokeRate: avgStrokeRate,
             imuGpsLagMs: syncOutput.signMatch?.lagMs,
-            warnings: warnings
+            cadenceAgreement: cadenceAgreement,
+            warnings: mutableWarnings
         )
 
         let processingDuration = Date().timeIntervalSince(startTime)
@@ -258,6 +280,55 @@ public struct FusionEngine {
             if !buffers.imu_raw_ts_acc_surge[i].isNaN { validCount += 1 }
         }
         return Double(validCount) / Double(buffers.size)
+    }
+
+    // MARK: - FIT Cadence Cross-Validation
+
+    /// Compares detected stroke rates against FIT cadence data.
+    ///
+    /// For each stroke, interpolates FIT cadence at the stroke midpoint and
+    /// checks if the detected stroke rate agrees within tolerance.
+    ///
+    /// - Returns: Fraction of strokes that agree (0.0–1.0), or `nil` if no valid cadence data.
+    private static func validateStrokeRateWithCadence(
+        strokes: [StrokeEvent],
+        fitTimeSeries: FITTimeSeries,
+        fitOffsetMs: Double,
+        bufferTimestamps: ContiguousArray<Double>
+    ) -> Double? {
+        guard !strokes.isEmpty, !fitTimeSeries.cadence.isEmpty else { return nil }
+
+        // Check if FIT cadence has any valid (non-NaN) data
+        let hasValidCadence = fitTimeSeries.cadence.contains(where: { !$0.isNaN })
+        guard hasValidCadence else { return nil }
+
+        let fitOriginMs = fitTimeSeries.timestampsMs.first(where: { !$0.isNaN }) ?? 0
+        let tolerance = FusionConstants.strokeDetCadenceToleranceSPM
+        var agreementCount = 0
+        var comparedCount = 0
+
+        for stroke in strokes {
+            // Stroke midpoint in GPMF timeline (ms)
+            let midpointMs = (stroke.startTime + stroke.endTime) / 2.0 * 1000.0
+            // Convert to FIT timeline
+            let targetFitMs = midpointMs + fitOriginMs - fitOffsetMs
+
+            let fitCadence = DSP.interpolateAt(
+                timestamps: fitTimeSeries.timestampsMs,
+                values: fitTimeSeries.cadence,
+                targetTime: targetFitMs
+            )
+
+            guard !fitCadence.isNaN else { continue }
+
+            comparedCount += 1
+            if abs(stroke.strokeRate - Double(fitCadence)) <= tolerance {
+                agreementCount += 1
+            }
+        }
+
+        guard comparedCount > 0 else { return nil }
+        return Double(agreementCount) / Double(comparedCount)
     }
 
     // MARK: - Empty Result
