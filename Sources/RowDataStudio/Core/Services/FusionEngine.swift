@@ -242,16 +242,30 @@ public struct FusionEngine {
         fitTimeSeries: FITTimeSeries,
         fitOffsetMs: Double
     ) {
-        guard !fitTimeSeries.timestampsMs.isEmpty else { return }
+        guard !fitTimeSeries.timestampsMs.isEmpty else {
+            print("[FusionEngine] interpolateFit: FIT timestampsMs is empty — skipping HR sync")
+            return
+        }
 
-        // FIT timestamps are Unix epoch (ms). GPMF timestamps are relative (ms).
-        // We need to convert: fitTimeInGpmfTimeline = fitTimestampMs - fitTimestampsMs[0] + fitOffsetMs
-        // But simpler: compute the offset between the two timeline origins
+        let validHR = fitTimeSeries.heartRate.filter { !$0.isNaN }
         let fitOriginMs = fitTimeSeries.timestampsMs.first(where: { !$0.isNaN }) ?? 0
+        let fitEndMs   = fitTimeSeries.timestampsMs.last(where:  { !$0.isNaN }) ?? 0
+        print("[FusionEngine] interpolateFit: \(fitTimeSeries.timestampsMs.count) FIT records, \(validHR.count) valid HR values, fitOriginMs=\(fitOriginMs), fitEndMs=\(fitEndMs), fitOffsetMs=\(fitOffsetMs)")
+        if let minHR = validHR.min(), let maxHR = validHR.max() {
+            print("[FusionEngine] HR range: \(minHR)–\(maxHR) bpm")
+        } else {
+            print("[FusionEngine] HR: all NaN in FIT time series")
+        }
+        print("[FusionEngine] GPMF buffer: \(buffers.size) samples, t[0]=\(buffers.timestamp.first ?? .nan) t[last]=\(buffers.timestamp.last ?? .nan)")
+
+        // offsetMs semantic (from GpsSpeedCorrelator / GpsTrackCorrelator):
+        //   offsetMs = fitStart - gpmfStart + lag
+        // where gpmfStart is relative (0-based camera clock) and fitStart is Unix epoch ms.
+        // So fitOffsetMs ≈ fitStart + small lag correction.
+        // To map a GPMF relative time t to FIT absolute epoch: fitAbsoluteTime = fitOffsetMs + t.
 
         for i in 0..<buffers.size {
-            // Convert buffer time (GPMF relative ms) to FIT timeline
-            let targetFitMs = buffers.timestamp[i] + fitOriginMs - fitOffsetMs
+            let targetFitMs = fitOffsetMs + buffers.timestamp[i]
 
             // Heart rate (nearest-neighbor — 1 Hz is coarse)
             buffers.phys_ext_ts_hr[i] = DSP.interpolateAt(

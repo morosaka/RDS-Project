@@ -51,6 +51,27 @@ public struct GPMFAdapter {
         try GPMFExtractor.extract(from: url)
     }
 
+    /// Convenience: extracts and converts all data in one call, returning only app-layer types.
+    ///
+    /// Prefer this over calling `extractTelemetry` + individual converters separately,
+    /// since it avoids exposing `TelemetryData` (a GPMF SDK type) to callers outside this adapter.
+    ///
+    /// - Parameter url: Path to the GoPro MP4 file.
+    /// - Returns: Tuple of SoA buffers, GPS time series, and ACCL time series.
+    /// - Throws: GPMF extraction errors.
+    public static func extractAll(from url: URL) throws -> (
+        buffers: SensorDataBuffers,
+        gpsTimeSeries: GPMFGpsTimeSeries,
+        accelTimeSeries: GPMFAccelTimeSeries
+    ) {
+        let telemetry = try GPMFExtractor.extract(from: url)
+        return (
+            buffers: toSensorDataBuffers(from: telemetry),
+            gpsTimeSeries: gpsTimeSeries(from: telemetry),
+            accelTimeSeries: accelTimeSeries(from: telemetry)
+        )
+    }
+
     // MARK: - GPS Time Series (for sync)
 
     /// Extracts GPS time series for sync strategies.
