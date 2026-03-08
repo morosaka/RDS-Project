@@ -9,11 +9,14 @@
  * - Inspector for selected widget configuration
  *
  * --- Revision History ---
- * v1.2.0 - 2026-03-08 - Wire all widget types to real implementations (MultiLine, StrokeTable, Map, Empower, MetricCard).
+ * v1.4.0 - 2026-03-08 - Pinch/zoom and spacebar via NSEvent monitor (bypasses SwiftUI responder chain).
+ * v1.3.0 - 2026-03-08 - Fix zoom: SimultaneousGesture attempt (insufficient for SPM executables).
+ * v1.2.0 - 2026-03-08 - Wire all widget types to real implementations.
  * v1.1.0 - 2026-03-08 - Full DataContext + SessionDocument integration.
  * v1.0.0 - 2026-03-08 - Placeholder scaffolding.
  */
 
+import AppKit
 import SwiftUI
 
 /// Main infinite canvas with pan, zoom, and draggable widgets.
@@ -23,17 +26,17 @@ public struct RowingDeskCanvas: View {
 
     @State private var selectedWidgetID: UUID?
     @State private var showWidgetPalette = false
+    @State private var eventMonitor: Any?
 
-    // Live pan/zoom state (committed to sessionDocument on gesture end)
+    // Live pan state (committed to sessionDocument on gesture end)
     @GestureState private var livePanDelta = CGSize.zero
-    @GestureState private var liveMagnification: CGFloat = 1.0
 
     private var canvas: CanvasState {
         dataContext.sessionDocument?.canvas ?? CanvasState()
     }
 
     private var effectiveZoom: CGFloat {
-        CGFloat(canvas.zoomLevel) * liveMagnification
+        CGFloat(canvas.zoomLevel)
     }
 
     private var effectivePan: CGPoint {
@@ -70,7 +73,9 @@ public struct RowingDeskCanvas: View {
                 }
                 .scaleEffect(effectiveZoom, anchor: .topLeading)
                 .offset(x: effectivePan.x, y: effectivePan.y)
-                // Pan gesture on background
+                // Pan via SwiftUI DragGesture. Zoom and spacebar handled by
+                // NSEvent monitor (setupEventMonitor) — bypasses SwiftUI
+                // responder chain limitations in SPM executables.
                 .gesture(
                     DragGesture(minimumDistance: 4)
                         .updating($livePanDelta) { value, state, _ in
@@ -79,18 +84,8 @@ public struct RowingDeskCanvas: View {
                         .onEnded { value in
                             commitPan(delta: value.translation)
                         }
-                        .simultaneously(with: TapGesture().onEnded { selectedWidgetID = nil })
                 )
-                // Zoom gesture
-                .gesture(
-                    MagnificationGesture()
-                        .updating($liveMagnification) { value, state, _ in
-                            state = max(0.25, min(4.0, value))
-                        }
-                        .onEnded { value in
-                            commitZoom(factor: value)
-                        }
-                )
+                .onTapGesture { selectedWidgetID = nil }
             }
 
             // ── Right sidebar ─────────────────────────────────────────
@@ -106,6 +101,8 @@ public struct RowingDeskCanvas: View {
             .frame(width: 260)
             .background(Color.gray.opacity(0.05))
         }
+        .onAppear { setupEventMonitor() }
+        .onDisappear { teardownEventMonitor() }
     }
 
     // MARK: - Sidebar
@@ -393,6 +390,42 @@ public struct RowingDeskCanvas: View {
     private func commitZoom(factor: CGFloat) {
         mutateCanvas { canvas in
             canvas.zoomLevel = max(0.25, min(4.0, canvas.zoomLevel * Double(factor)))
+        }
+    }
+
+    // MARK: - NSEvent monitor (zoom + spacebar)
+
+    private func setupEventMonitor() {
+        // Capture reference types directly — avoids struct-copy stale-capture issue.
+        let dc = dataContext
+        let pc = playheadController
+
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.magnify, .keyDown]) { event in
+            switch event.type {
+            case .magnify:
+                // event.magnification is the delta for this event (e.g. 0.02 = 2% zoom).
+                let factor = max(0.25, min(4.0, 1.0 + event.magnification))
+                if dc.sessionDocument != nil {
+                    dc.sessionDocument!.canvas.zoomLevel = max(
+                        0.25, min(4.0, dc.sessionDocument!.canvas.zoomLevel * Double(factor))
+                    )
+                }
+                return nil
+
+            case .keyDown where event.keyCode == 49:  // 49 = spacebar
+                if pc.isPlaying { pc.pause() } else { pc.play() }
+                return nil
+
+            default:
+                return event
+            }
+        }
+    }
+
+    private func teardownEventMonitor() {
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
         }
     }
 

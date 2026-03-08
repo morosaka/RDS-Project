@@ -190,7 +190,7 @@ public struct ContentView: View {
         } ?? ""
 
         return HStack(spacing: 6) {
-            Image(systemName: "figure.rowing")
+            Image(systemName: "waveform.path.ecg")
             Text("\(validStrokes) strokes\(avgRate)")
         }
         .font(.caption)

@@ -1,10 +1,11 @@
-// Core/Services/VideoSyncController.swift v1.0.0
+// Core/Services/VideoSyncController.swift v1.1.0
 /**
  * Bidirectional sync controller between AVPlayer and PlayheadController.
  * PlayheadController is the source of truth for time. VideoSyncController
  * updates AVPlayer state in response to PlayheadController changes.
  *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-08 - Propagate video duration to PlayheadController when PC.duration == 0.
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 7).
  */
 
@@ -23,7 +24,9 @@ public final class VideoSyncController: ObservableObject, @unchecked Sendable {
     private var pendingSeekMs: Double?
 
     private static let seekThresholdMs: Double = 50
-    private static let driftThresholdSeconds: Double = 0.2
+    // High drift threshold avoids frequent seek-interruptions during H264 decode.
+    // AVPlayer's own clock is accurate enough for sessions < 30 min.
+    private static let driftThresholdSeconds: Double = 2.0
 
     public init(url: URL?, timeOffsetMs: Double = 0) {
         self.timeOffsetMs = timeOffsetMs
@@ -39,6 +42,17 @@ public final class VideoSyncController: ObservableObject, @unchecked Sendable {
 
     public func bind(to playheadController: PlayheadController) {
         weak var weakPC = playheadController
+
+        // Propagate video duration to PlayheadController when PC has no data source yet.
+        // This allows the video widget to drive playback standalone (without GPMF pipeline).
+        $videoDuration
+            .filter { $0 > 0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak playheadController] durationSeconds in
+                guard let pc = playheadController, pc.duration == 0 else { return }
+                pc.duration = durationSeconds * 1000  // seconds → ms
+            }
+            .store(in: &cancellables)
 
         // Handle play/pause state changes
         playheadController.$isPlaying
@@ -76,8 +90,9 @@ public final class VideoSyncController: ObservableObject, @unchecked Sendable {
             }
             .store(in: &cancellables)
 
-        // Periodic observer for drift correction during playback
-        let interval = CMTime(value: 1, timescale: 60)
+        // Periodic observer for drift correction during playback.
+        // 4Hz is sufficient — reduces CPU load vs 60Hz and avoids seek storms.
+        let interval = CMTime(value: 1, timescale: 4)
         timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: interval,
             queue: .main

@@ -9,32 +9,38 @@ Implemented synchronized AVPlayer-based video playback locked to PlayheadControl
 ## Files Created (10)
 
 ### Core Sync & Video
+
 - `Core/Services/VideoSyncController.swift` v1.0.0 — 140 lines, bidirectional Combine sync, drift correction
 - `UI/VideoPlayer/VideoPlayerView.swift` v1.0.0 — 28 lines, NSViewRepresentable for AVPlayerView (macOS)
 - `Rendering/Widgets/VideoWidget.swift` v1.0.0 — 130 lines, canvas widget with controls
 
 ### Timeline UI (3 files)
+
 - `UI/Timeline/TimelineRuler.swift` v1.0.0 — 80 lines, adaptive tick marks + Canvas rendering
 - `UI/Timeline/TimelineTrack.swift` v1.0.0 — 85 lines, per-source color bars
 - `UI/Timeline/TimelineView.swift` v1.0.0 — 150 lines, multi-track timeline + playhead line
 
 ### Trim & Persistence
+
 - `UI/VideoPlayer/VideoTrimView.swift` v1.0.0 — 180 lines, drag handles, sidecar warnings
 - `RowingDeskCanvas.swift` (modified) — replaced `.video` placeholder with real VideoWidget integration
 
 ### Tests (36 new)
+
 - `VideoSyncControllerTests.swift` — 18 pure-logic tests (time math, seek thresholds, drift, multi-camera)
 - `TimelineRulerTests.swift` — 18 computation tests (intervals, formatting, positioning)
 
 ## Architecture Decisions
 
 ### 1. PlayheadController as Single Source of Truth
+
 - All video sync flows through PlayheadController via Combine publishers
 - VideoSyncController subscribes to: `$isPlaying`, `$currentTimeMs`, `$playbackRate`
 - AVPlayer becomes a **follower**, never a driver (prevents feedback loops)
 
 ### 2. Bidirectional Sync Strategy
-```
+
+```text
 PlayheadController.currentTimeMs (Combine sink)
   → seekToPlayhead(ms) with threshold check (50ms)
   
@@ -48,12 +54,14 @@ AVPlayer.addPeriodicTimeObserver(1/60s, queue: .main)
 ```
 
 ### 3. Multi-Camera Support
+
 - Each VideoWidget owns a VideoSyncController with `timeOffsetMs`
 - Offset stored in WidgetState.configuration["timeOffsetMs"] (AnyCodable Double)
 - All share single PlayheadController → synchronized playback with per-camera sync offsets
 - SourceID (UUID) also in configuration for later multi-source selection
 
 ### 4. Seek Anti-Loop Prevention
+
 ```swift
 if isSeeking { pendingSeekMs = playheadMs; return }
 isSeeking = true
@@ -67,8 +75,9 @@ player.seek(...) { [weak self] _ in
 ```
 
 ### 5. Timeline Adaptive Intervals
+
 | Duration | Minor | Major | Use Case |
-|----------|-------|-------|----------|
+| -------- | ----- | ----- | -------- |
 | < 30s | 1s | 5s | Real-time sports detail |
 | 30s–5m | 5s | 30s | Row intervals |
 | 5–30m | 30s | 5m | Full session |
@@ -89,22 +98,27 @@ player.seek(...) { [weak self] _ in
 ## Key Technical Challenges & Solutions
 
 ### Challenge 1: macOS vs iOS AVKit API
+
 **Problem:** `VideoPlayer` from AVKit is iOS-only; macOS uses `AVPlayerView`
 **Solution:** NSViewRepresentable wrapper with `controlsStyle = .none` for custom UI
 
 ### Challenge 2: @StateObject Init with Dynamic URL
+
 **Problem:** If VideoWidget receives URL as parameter, StateObject can't reinit when URL changes
 **Solution:** Used `.id(widget.id)` on WidgetContainer so view recreates when widget ID changes; URL is stable after widget creation
 
 ### Challenge 3: Combine Retain Cycles in Bind
+
 **Problem:** Binding VideoSyncController to PlayheadController creates strong reference cycles
 **Solution:** Used `[weak self, weak playheadController]` in all sinks; weak PlayheadController captured as `weakPC`
 
 ### Challenge 4: UIScreen Not Available on macOS
+
 **Problem:** Timeline width calculation used `UIScreen.main.bounds.width` (iOS-only)
 **Solution:** Wrapped in `GeometryReader` to get actual available width dynamically
 
 ### Challenge 5: Swift Testing Import Not XCTest
+
 **Problem:** Initial test files used `import XCTest` + `XCTestCase` (old framework)
 **Solution:** Changed to `import Testing` + `@Suite` struct + `@Test` macro + `#expect`
 
@@ -134,7 +148,7 @@ All tests **passing** ✅
 ## Files Modified
 
 | File | Change | Lines |
-|------|--------|-------|
+| ---- | ------ | ----- |
 | RowingDeskCanvas.swift | Replaced `.video` placeholder case with VideoWidget integration | +22 |
 
 ## Known Limitations (Post-Phase 7)

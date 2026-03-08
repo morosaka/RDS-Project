@@ -1,4 +1,4 @@
-// UI/SessionListView.swift v1.0.0
+// UI/SessionListView.swift v1.1.0
 /**
  * Session list view with filtering, sorting, and navigation.
  *
@@ -18,10 +18,12 @@ typealias UIColor = NSColor
 
 /// Displays a list of saved sessions.
 public struct SessionListView: View {
+    public init() {}
     @State private var sessions: [SessionDocument] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var selectedSessionID: UUID?
+    @State private var showImport = false
 
     public var body: some View {
         NavigationStack {
@@ -43,10 +45,18 @@ public struct SessionListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
+                    Button(action: { showImport = true }) {
+                        Image(systemName: "plus")
+                    }
+                }
+                ToolbarItem(placement: .automatic) {
                     Button(action: reload) {
                         Image(systemName: "arrow.clockwise")
                     }
                 }
+            }
+            .navigationDestination(isPresented: $showImport) {
+                ImportView()
             }
             .onAppear {
                 reload()
