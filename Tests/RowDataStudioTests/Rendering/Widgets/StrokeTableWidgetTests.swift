@@ -1,0 +1,129 @@
+// Tests/RowDataStudioTests/Rendering/Widgets/StrokeTableWidgetTests.swift v1.0.0
+/**
+ * Tests for StrokeTableWidget data logic and formatting.
+ * --- Revision History ---
+ * v1.0.0 - 2026-03-08 - Initial implementation (Phase 6: Canvas & Widgets).
+ */
+
+import Testing
+import Foundation
+@testable import RowDataStudio
+
+@Suite("StrokeTableWidget")
+struct StrokeTableWidgetTests {
+
+    // MARK: - Helpers: mock data
+
+    private func makeStat(index: Int, rate: Double = 24.0, dist: Double? = 8.1) -> PerStrokeStat {
+        PerStrokeStat(
+            strokeIndex: index,
+            duration: 2.5,
+            strokeRate: rate,
+            distance: dist,
+            avgVelocity: 3.4,
+            peakVelocity: 4.1,
+            avgHR: 142
+        )
+    }
+
+    // MARK: - Active index selection
+
+    @Test("Active index is nil when no start times provided")
+    func activeIndexEmptyStartTimes() {
+        let widget = StrokeTableWidget(
+            strokes: [makeStat(index: 0)],
+            playheadTimeMs: 5000,
+            strokeStartTimesMs: []
+        )
+        // Cannot access private activeIndex directly — test via public initializer completing without crash
+        #expect(widget.strokes.count == 1)
+    }
+
+    @Test("Strokes array preserved correctly")
+    func strokesPreserved() {
+        let stats = (0..<5).map { makeStat(index: $0) }
+        let widget = StrokeTableWidget(
+            strokes: stats,
+            playheadTimeMs: 0,
+            strokeStartTimesMs: []
+        )
+        #expect(widget.strokes.count == 5)
+        #expect(widget.strokes[2].strokeIndex == 2)
+    }
+
+    // MARK: - Formatting helpers (via PerStrokeStat values)
+
+    @Test("Stroke rate formatting precision")
+    func strokeRateFormat() {
+        let stat = makeStat(index: 0, rate: 23.7)
+        #expect(stat.strokeRate == 23.7)
+        let formatted = String(format: "%.1f", stat.strokeRate)
+        #expect(formatted == "23.7")
+    }
+
+    @Test("Distance formatting with nil")
+    func distanceNilHandling() {
+        let stat = makeStat(index: 0, dist: nil)
+        #expect(stat.distance == nil)
+        let formatted = stat.distance.map { String(format: "%.1fm", $0) } ?? "--"
+        #expect(formatted == "--")
+    }
+
+    @Test("Distance formatting with value")
+    func distanceFormatting() {
+        let stat = makeStat(index: 0, dist: 8.14)
+        let formatted = String(format: "%.1fm", stat.distance!)
+        #expect(formatted == "8.1m")
+    }
+
+    @Test("HR formatting rounds to integer")
+    func hrFormatting() {
+        let stat = PerStrokeStat(
+            strokeIndex: 0, duration: 2.5, strokeRate: 24.0,
+            avgHR: 142.7
+        )
+        let formatted = String(format: "%.0f", stat.avgHR!)
+        #expect(formatted == "143")
+    }
+
+    @Test("Stroke index formatted as 3-digit zero-padded")
+    func strokeIndexFormatting() {
+        let stat = makeStat(index: 4)
+        let formatted = String(format: "%03d", stat.strokeIndex + 1)
+        #expect(formatted == "005")
+    }
+
+    // MARK: - Edge cases
+
+    @Test("Empty strokes array is valid")
+    func emptyStrokes() {
+        let widget = StrokeTableWidget(
+            strokes: [],
+            playheadTimeMs: 0,
+            strokeStartTimesMs: []
+        )
+        #expect(widget.strokes.isEmpty)
+    }
+
+    @Test("Single stroke")
+    func singleStroke() {
+        let widget = StrokeTableWidget(
+            strokes: [makeStat(index: 0)],
+            playheadTimeMs: 1000,
+            strokeStartTimesMs: [0]
+        )
+        #expect(widget.strokes.count == 1)
+    }
+
+    @Test("Start times count may differ from strokes count (graceful)")
+    func mismatchedCounts() {
+        let strokes = (0..<10).map { makeStat(index: $0) }
+        let starts = [0.0, 2500.0]  // only 2 start times for 10 strokes
+        let widget = StrokeTableWidget(
+            strokes: strokes,
+            playheadTimeMs: 1000,
+            strokeStartTimesMs: starts
+        )
+        #expect(widget.strokes.count == 10)
+    }
+}

@@ -1,4 +1,4 @@
-// UI/RowingDeskCanvas.swift v1.1.0
+// UI/RowingDeskCanvas.swift v1.2.0
 /**
  * Infinite canvas for multi-widget analysis layout.
  *
@@ -9,6 +9,7 @@
  * - Inspector for selected widget configuration
  *
  * --- Revision History ---
+ * v1.2.0 - 2026-03-08 - Wire all widget types to real implementations (MultiLine, StrokeTable, Map, Empower, MetricCard).
  * v1.1.0 - 2026-03-08 - Full DataContext + SessionDocument integration.
  * v1.0.0 - 2026-03-08 - Placeholder scaffolding.
  */
@@ -223,42 +224,81 @@ public struct RowingDeskCanvas: View {
     // MARK: - Widget content factory
 
     private func widgetContent(for widget: WidgetState) -> AnyView {
+        let ts = dataContext.timestamps ?? []
+        let dur = dataContext.sessionDurationMs
+        let viewport: ClosedRange<Double> = dur > 0 ? (0.0...dur) : (0.0...1.0)
+        let playheadMs = playheadController.currentTimeMs
+
         switch widget.type {
-        case .lineChart, .multiLineChart:
+        case .lineChart:
             let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
-            let ts = dataContext.timestamps ?? []
             let vals = dataContext.values(for: metricID) ?? []
-            let dur = dataContext.sessionDurationMs
-            let viewport = dur > 0 ? (0.0...dur) : (0.0...1.0)
-            return AnyView(
-                LineChartWidget(
-                    timestamps: ts,
-                    values: vals,
-                    playheadTimeMs: playheadController.currentTimeMs,
-                    viewportMs: viewport
-                )
-            )
+            return AnyView(LineChartWidget(
+                timestamps: ts, values: vals,
+                playheadTimeMs: playheadMs, viewportMs: viewport
+            ))
+
+        case .multiLineChart:
+            let ids = widget.metricIDs.isEmpty ? [dataContext.selectedMetric] : widget.metricIDs
+            let series = MultiLineChartWidget.series(from: dataContext, metricIDs: ids)
+            return AnyView(MultiLineChartWidget(
+                series: series, playheadTimeMs: playheadMs, viewportMs: viewport
+            ))
+
         case .metricCard:
-            return AnyView(metricCardContent(widget))
-        default:
+            let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
+            let values = dataContext.values(for: metricID) ?? []
+            let label = metricID.components(separatedBy: "_").last ?? metricID
+            return AnyView(MetricCardWidget(
+                label: label, unit: "",
+                values: values, timestamps: ts,
+                playheadTimeMs: playheadMs
+            ))
+
+        case .strokeTable:
+            let strokes = dataContext.fusionResult?.perStrokeStats ?? []
+            let startTimes = dataContext.fusionResult?.strokes.map { $0.startTime * 1000 } ?? []
+            return AnyView(StrokeTableWidget(
+                strokes: strokes,
+                playheadTimeMs: playheadMs,
+                strokeStartTimesMs: startTimes
+            ))
+
+        case .map:
+            let lats = dataContext.buffers?.dynamic["gps_gpmf_ts_lat"] ?? []
+            let lons = dataContext.buffers?.dynamic["gps_gpmf_ts_lon"] ?? []
+            return AnyView(MapWidget(
+                latitudes: lats, longitudes: lons,
+                timestamps: ts, playheadTimeMs: playheadMs
+            ))
+
+        case .empowerRadar:
+            let result = dataContext.fusionResult
+            let activeStroke = result.flatMap { r in
+                r.perStrokeStats.last(where: { stat in
+                    guard let idx = r.strokes.first(where: { $0.index == stat.strokeIndex }) else { return false }
+                    return idx.startTime * 1000 <= playheadMs
+                })
+            }
+            let avgMetrics: [String: Double] = result.map { r in
+                var sums = [String: Double](); var counts = [String: Int]()
+                for stat in r.perStrokeStats {
+                    for (k, v) in stat.metrics {
+                        sums[k, default: 0] += v; counts[k, default: 0] += 1
+                    }
+                }
+                return sums.reduce(into: [String: Double]()) { acc, pair in
+                    acc[pair.key] = pair.value / Double(counts[pair.key] ?? 1)
+                }
+            } ?? [:]
+            return AnyView(EmpowerRadarWidget(currentStroke: activeStroke, averageMetrics: avgMetrics))
+
+        case .video:
+            return AnyView(placeholderContent(widget))
+
+        case .none:
             return AnyView(placeholderContent(widget))
         }
-    }
-
-    private func metricCardContent(_ widget: WidgetState) -> some View {
-        let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
-        let values = dataContext.values(for: metricID) ?? []
-        let current = values.isEmpty ? Float.nan : values[min(Int(playheadController.currentTimeMs / 5), values.count - 1)]
-        return VStack(spacing: 4) {
-            Text(metricID.components(separatedBy: "_").last ?? metricID)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Text(current.isNaN ? "--" : String(format: "%.2f", current))
-                .font(.title)
-                .fontWeight(.bold)
-                .monospacedDigit()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func placeholderContent(_ widget: WidgetState) -> some View {
