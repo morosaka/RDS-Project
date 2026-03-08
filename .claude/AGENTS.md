@@ -10,6 +10,7 @@
 4. Read `.claude/CONVENTIONS.md` if writing or reviewing code
 5. Check `git status` -- verify working tree is clean before starting
 6. Read recent session logs in `.claude/session-logs/` for continuity
+7. **Consult Open-Brain memory** — Search for relevant knowledge about the project using `mcp__open-brain__semantic_search` to restore context from previous sessions. Acknowledge the retrieved knowledge in the conversation.
 
 ### During Session
 
@@ -28,9 +29,31 @@
 
 ## Session Logging
 
+### Open-Brain Memory Capture
+
+The complex logic of analyzing the conversation and splitting it into granular facets is strictly governed by the `open-brain-mcp` backend schema. Observe the server's `description` property on the `capture_thought` tool and follow the rules strictly.
+
+### Step 1: Save Open Brain memory
+
+After completing significant work or discovering important patterns:
+
+- Use `mcp__open-brain__capture_thought` to save learnings, decisions, and architectural insights to Open-Brain.
+- Do not attempt to summarize the conversation into a single generic paragraph.
+Provide the required `facets` array based on the conversation history. The server schema will enforce the exact format (an array of distinct facets, each with an attribution label, title, and high-resolution content).
+- Include high-resolution details (exact variable names, file paths, jargon, specific concepts, project name, etc.)
+- Tag by topic/attribution (Technical Detail, Decision, Lesson Learned, etc.)
+- **CRITICAL RULE:** Do NOT include raw code snippets or giant codebase dumps inside the facets. Reference variable names, filenames, and concepts instead. Keep the resolution high but omit the raw code.
+
+## Step 2: Confirm Open Brain memory saved
+
+- After the tool returns successfully, tell the user: "✓ Saved to open-brain: [list of facet titles]"
+- If the tool fails (e.g., due to schema validation), read the error carefully, adjust the JSON array, and retry one more time. If it fails again, stop and report the error to the user.
+
+This skill is a **trigger**.
+
 ### Log File Naming
 
-```
+```text
 .claude/session-logs/YYYY-MM-DD_HHMM_description.md
 ```
 
@@ -67,6 +90,7 @@ status: [completed | partial | blocked]
 ```
 
 ### Log Retention
+
 - Logs are committed to git alongside code changes
 - Old logs (>30 days) may be archived or summarized at human discretion
 - Never delete logs -- they are the project's memory
@@ -74,11 +98,13 @@ status: [completed | partial | blocked]
 ## Multi-Agent Safety
 
 ### File Ownership
+
 - The Planner agent assigns non-overlapping file scopes to sub-agents
 - A sub-agent must not modify files outside its assigned scope
 - Shared files (CLAUDE.md, Package.swift) require Planner coordination
 
 ### Conflict Prevention
+
 - Each sub-agent works on a separate feature branch when possible
 - Never modify CLAUDE.md or `.claude/` files without Planner approval
 - Run `swift build` after every file modification
@@ -86,6 +112,7 @@ status: [completed | partial | blocked]
 - Do not "fix" failing tests by weakening assertions
 
 ### Planner Agent Responsibilities
+
 1. Read all pending session logs before dispatching work
 2. Verify git working tree is clean before starting
 3. Assign non-overlapping file scopes to sub-agents
@@ -96,12 +123,14 @@ status: [completed | partial | blocked]
 ## Verification Checkpoints
 
 ### Before Any Code Change
+
 - [ ] Read the file being modified (Read tool, not assumptions)
 - [ ] Check if the file's directory has a CLAUDE.md with local conventions
 - [ ] Verify the change aligns with INTENT.md values and trade-off hierarchies
 - [ ] Confirm the change is within your assigned scope
 
 ### After Code Changes
+
 - [ ] `swift build` succeeds with no new warnings
 - [ ] `swift test` passes in affected module
 - [ ] File header version incremented with revision history entry
@@ -109,8 +138,10 @@ status: [completed | partial | blocked]
 - [ ] All new public types conform to Sendable
 
 ### Before Commit
+
 - [ ] All verification checkpoints pass
 - [ ] Session log written to `.claude/session-logs/`
+- [ ] Session notes captured in Open-Brain memory
 - [ ] Commit message follows conventional format (see CONVENTIONS.md)
 - [ ] No secrets, test data, or personal information in staged files
 - [ ] Only explicitly requested files are staged (no `git add -A`)
@@ -118,7 +149,9 @@ status: [completed | partial | blocked]
 ## Progress Tracking
 
 ### For Multi-Step Tasks
+
 Use TodoWrite to maintain a structured task list. Rules:
+
 - Create the list at task start with all known steps
 - Mark exactly one task as `in_progress` at a time
 - Mark tasks `completed` immediately when done (don't batch)
@@ -126,7 +159,9 @@ Use TodoWrite to maintain a structured task list. Rules:
 - If blocked, keep the task as `in_progress` and note the blocker
 
 ### For Extended Implementations (multi-session)
+
 Reference the plan file created during planning phase. Each session should:
+
 1. Read the plan to understand overall progress
 2. Identify which phase/step to work on next
 3. Complete the step and verify

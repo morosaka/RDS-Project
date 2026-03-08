@@ -22,6 +22,7 @@ Every Swift file must begin with a versioned docblock:
 
 App version tracked in `Info.plist` (CFBundleShortVersionString).
 Semantic versioning: **X.Y.Z**
+
 - **Z**: Patch/bugfix
 - **Y**: New feature or algorithm
 - **X**: Major (only on explicit instruction)
@@ -30,7 +31,7 @@ Semantic versioning: **X.Y.Z**
 
 Conventional commits with lowercase type prefix:
 
-```
+```text
 feat: Add LTTB downsampling transform for charts
 fix: Prevent GPS sync failure on missing GPSU timestamps
 refactor: Extract stroke detection into separate module
@@ -67,15 +68,16 @@ enum TimeConstants {
 
 Pattern: `[FAMILY]_[SOURCE]_[TYPE]_[NAME]_[MODIFIER]`
 
-| Segment  | Values                              | Meaning                          |
-|----------|-------------------------------------|----------------------------------|
-| FAMILY   | `imu`, `gps`, `phys`, `mech`, `fus` | Physical domain                  |
-| SOURCE   | `raw`, `gpmf`, `ext`, `cal`, `fus`  | Data source (ext=FIT, cal=calibrated) |
-| TYPE     | `ts`, `str`, `evt`                  | Temporal domain (time-series, stroke, event) |
-| NAME     | `acc`, `gyro`, `speed`, `hr`, `vel` | Physical quantity                |
-| MODIFIER | `surge`, `sway`, `heave`, `peak`, `avg` | Axis or aggregation          |
+| Segment | Values | Meaning |
+| ------- | ------ | ------- |
+| FAMILY | `imu`, `gps`, `phys`, `mech`, `fus` | Physical domain |
+| SOURCE | `raw`, `gpmf`, `ext`, `cal`, `fus` | Data source (ext=FIT, cal=calibrated) |
+| TYPE | `ts`, `str`, `evt` | Temporal domain (time-series, stroke, event) |
+| NAME | `acc`, `gyro`, `speed`, `hr`, `vel` | Physical quantity |
+| MODIFIER | `surge`, `sway`, `heave`, `peak`, `avg` | Axis or aggregation |
 
 **Examples:**
+
 - `imu_raw_ts_acc_surge` -- Raw IMU surge acceleration (time-series)
 - `gps_gpmf_ts_speed` -- GPS speed from GoPro GPMF
 - `fus_cal_ts_vel_inertial` -- Fused velocity (complementary filter)
@@ -93,7 +95,7 @@ Example: `RDS_20260228_1430_Session_Export.json`
 ### Framework by Module
 
 | Module | Framework | Tests | Notes |
-|--------|-----------|-------|-------|
+| ------ | --------- | ----- | ----- |
 | gpmf-swift-sdk-main | XCTest | 222 | Mature, all XCTest |
 | fit-swift-sdk-main | Mixed XCTest + Swift Testing | 248 | Garmin SDK port, transitioning |
 | csv-swift-sdk-main | Swift Testing | 20 | All new code uses @Test/#expect |
@@ -129,12 +131,14 @@ struct FeatureTests {
 ```
 
 ### Test Conventions
+
 - Factory helpers: `create*`, `mock*` prefix
 - Constants: `MOCK_*` prefix
 - Floating-point: `XCTAssertEqual(a, b, accuracy: epsilon)` or `#expect(abs(a - b) < epsilon)`
 - Resource loading: Use `Bundle.module` for SPM, `ResourceHelper` pattern for dual SPM/Xcode
 
 ### Coverage Targets
+
 - **Core logic** (FusionEngine, SyncEngine, StrokeDetection): >90%
 - **Signal processing** (LTTB, smoothing, correlation): >85%
 - **UI widgets**: Snapshot tests for visual regression (future)
