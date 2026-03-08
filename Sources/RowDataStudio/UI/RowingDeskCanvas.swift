@@ -294,7 +294,27 @@ public struct RowingDeskCanvas: View {
             return AnyView(EmpowerRadarWidget(currentStroke: activeStroke, averageMetrics: avgMetrics))
 
         case .video:
-            return AnyView(placeholderContent(widget))
+            // Extract video source ID from widget configuration
+            let sourceIDStr = widget.configuration["sourceID"]?.value as? String
+            let sourceID = sourceIDStr.flatMap { UUID(uuidString: $0) }
+            
+            // Find video URL from session
+            let videoURL: URL? = {
+                if let id = sourceID,
+                   let src = dataContext.sessionDocument?.source(withID: id),
+                   case .goProVideo(_, let url, _) = src { return url }
+                if let primary = dataContext.sessionDocument?.primaryVideo,
+                   case .goProVideo(_, let url, _) = primary { return url }
+                return nil
+            }()
+            
+            let offsetMs = widget.configuration["timeOffsetMs"]?.value as? Double ?? 0.0
+            
+            return AnyView(VideoWidget(
+                url: videoURL,
+                timeOffsetMs: offsetMs,
+                playheadController: playheadController
+            ))
 
         case .none:
             return AnyView(placeholderContent(widget))
