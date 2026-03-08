@@ -1,136 +1,130 @@
-// Rendering/Widgets/WidgetProtocol.swift v1.0.0
+// Rendering/Widgets/WidgetProtocol.swift v1.1.0
 /**
- * Protocol for all analysis widgets in the infinite canvas.
+ * Protocol and type extensions for analysis widgets.
  *
- * Defines required properties and data binding interface.
- * Each widget type (LineChart, StrokeTable, etc.) conforms to this protocol.
+ * - AnalysisWidget: base protocol for all canvas widgets
+ * - WidgetType: enum-based type classification (display name, icon)
+ * - WidgetState extensions: type-safe access via WidgetType
+ *
+ * WidgetState (position, size, config) is defined in Core/Models/CanvasState.swift.
+ * This file adds the Phase 6 rendering layer on top.
  *
  * --- Revision History ---
- * v1.0.0 - 2026-03-08 - Initial implementation (Phase 6: Canvas & Widgets).
+ * v1.1.0 - 2026-03-08 - Remove WidgetConfig (duplicate of WidgetState); add WidgetType + WidgetState extension.
+ * v1.0.0 - 2026-03-08 - Initial scaffolding (Phase 6: Canvas & Widgets).
  */
 
 import SwiftUI
 
-/// Base protocol for all analysis widgets.
-public protocol AnalysisWidget: View, Identifiable, Hashable {
-    /// Unique widget identifier
-    var id: UUID { get }
+// MARK: - WidgetType
 
-    /// User-facing widget title
-    var title: String { get set }
-
-    /// Widget type identifier (for persistence + UI)
-    var type: WidgetType { get }
-
-    /// Canvas position (top-left corner in 1-based coordinates)
-    var position: CGPoint { get set }
-
-    /// Canvas size (width, height in pixels)
-    var size: CGSize { get set }
-
-    /// Which metric(s) this widget displays
-    var metricIDs: [String] { get set }
-
-    /// Data context (shared sensor buffers, fusion results)
-    var dataContext: DataContext { get }
-
-    /// Playhead controller (current position in timeline)
-    var playheadController: PlayheadController { get }
-
-    /// Is widget currently selected (for editing)
-    var isSelected: Bool { get set }
-
-    /// Visibility toggle
-    var isVisible: Bool { get set }
-}
-
-/// Widget type enumeration (for type-based routing and persistence).
-public enum WidgetType: String, Codable, Sendable, Hashable {
-    case lineChart
-    case multiLineChart
-    case strokeTable
-    case metricCard
-    case map
-    case empowerRadar
-    case video
+/// Typed classification of canvas widgets.
+///
+/// The raw value maps to `WidgetState.widgetType` string for persistence.
+public enum WidgetType: String, Codable, Sendable, Hashable, CaseIterable {
+    case lineChart       = "lineChart"
+    case multiLineChart  = "multiLineChart"
+    case strokeTable     = "strokeTable"
+    case metricCard      = "metricCard"
+    case map             = "map"
+    case empowerRadar    = "empowerRadar"
+    case video           = "video"
 
     public var displayName: String {
         switch self {
-        case .lineChart:
-            return "Line Chart"
-        case .multiLineChart:
-            return "Multi-Line Chart"
-        case .strokeTable:
-            return "Stroke Table"
-        case .metricCard:
-            return "Metric Card"
-        case .map:
-            return "GPS Track"
-        case .empowerRadar:
-            return "Empower Radar"
-        case .video:
-            return "Video Player"
+        case .lineChart:       return "Line Chart"
+        case .multiLineChart:  return "Multi-Line Chart"
+        case .strokeTable:     return "Stroke Table"
+        case .metricCard:      return "Metric Card"
+        case .map:             return "GPS Track"
+        case .empowerRadar:    return "Empower Radar"
+        case .video:           return "Video Player"
         }
     }
 
     public var icon: String {
         switch self {
-        case .lineChart:
-            return "chart.line"
-        case .multiLineChart:
-            return "chart.line.uptrend.xyaxis"
-        case .strokeTable:
-            return "tablecells"
-        case .metricCard:
-            return "rectanglerounded.inset.filled"
-        case .map:
-            return "map"
-        case .empowerRadar:
-            return "radar"
-        case .video:
-            return "video.fill"
+        case .lineChart:       return "chart.line.uptrend.xyaxis"
+        case .multiLineChart:  return "chart.line.uptrend.xyaxis"
+        case .strokeTable:     return "tablecells"
+        case .metricCard:      return "rectangle.inset.filled"
+        case .map:             return "map"
+        case .empowerRadar:    return "dot.radiowaves.left.and.right"
+        case .video:           return "video.fill"
+        }
+    }
+
+    /// Default canvas size for this widget type.
+    public var defaultSize: CGSize {
+        switch self {
+        case .lineChart, .multiLineChart:  return CGSize(width: 480, height: 280)
+        case .strokeTable:                 return CGSize(width: 420, height: 360)
+        case .metricCard:                  return CGSize(width: 200, height: 120)
+        case .map:                         return CGSize(width: 400, height: 400)
+        case .empowerRadar:                return CGSize(width: 320, height: 320)
+        case .video:                       return CGSize(width: 560, height: 360)
         }
     }
 }
 
-/// Configuration state for a widget (persisted in SessionDocument.canvas).
-public struct WidgetConfig: Codable, Sendable, Hashable {
-    /// Widget type
-    public let type: WidgetType
+// MARK: - WidgetState Extension
 
-    /// Unique ID
-    public let id: UUID
-
-    /// Display title
-    public var title: String
-
-    /// Canvas position
-    public var position: CGPoint
-
-    /// Canvas size
-    public var size: CGSize
-
-    /// Which metrics to display
-    public var metricIDs: [String]
-
-    /// Visibility toggle
-    public var isVisible: Bool
-
-    public init(
-        type: WidgetType,
-        id: UUID = UUID(),
-        title: String,
-        position: CGPoint = CGPoint(x: 0, y: 0),
-        size: CGSize = CGSize(width: 400, height: 300),
-        metricIDs: [String] = [],
-        isVisible: Bool = true
-    ) {
-        self.type = type
-        self.id = id
-        self.title = title
-        self.position = position
-        self.size = size
-        self.metricIDs = metricIDs
-        self.isVisible = isVisible
+extension WidgetState {
+    /// Typed widget type (parsed from `widgetType` string).
+    /// Returns `nil` if the string doesn't match a known type.
+    public var type: WidgetType? {
+        WidgetType(rawValue: widgetType)
     }
+
+    /// Convenience: metric IDs from configuration.
+    public var metricIDs: [String] {
+        guard let arr = configuration["metricIDs"]?.value as? [Any] else { return [] }
+        return arr.compactMap { $0 as? String }
+    }
+
+    /// Convenience: widget title from configuration (fallbacks to type display name).
+    public var title: String {
+        (configuration["title"]?.value as? String) ?? (type?.displayName ?? widgetType)
+    }
+
+    /// Convenience: visibility toggle from configuration.
+    public var isVisible: Bool {
+        (configuration["isVisible"]?.value as? Bool) ?? true
+    }
+
+    /// Creates a WidgetState for a given type at a canvas position.
+    public static func make(
+        type: WidgetType,
+        position: CGPoint,
+        metricIDs: [String] = [],
+        title: String? = nil
+    ) -> WidgetState {
+        WidgetState(
+            widgetType: type.rawValue,
+            position: position,
+            size: type.defaultSize,
+            configuration: [
+                "title": AnyCodable(title ?? type.displayName),
+                "metricIDs": AnyCodable(metricIDs),
+                "isVisible": AnyCodable(true)
+            ]
+        )
+    }
+}
+
+// MARK: - AnalysisWidget Protocol
+
+/// Base protocol for all analysis widget SwiftUI views.
+///
+/// Conforming types receive data from `DataContext` and react to `PlayheadController`.
+/// Widget layout (position, size) is stored in `WidgetState` within `SessionDocument.canvas`.
+public protocol AnalysisWidget: View {
+    /// Widget configuration (position, size, type, metric IDs)
+    var state: WidgetState { get }
+
+    /// Shared data source
+    var dataContext: DataContext { get }
+
+    /// Timeline playhead
+    var playheadController: PlayheadController { get }
 }

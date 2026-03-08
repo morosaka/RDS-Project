@@ -1,8 +1,9 @@
-// Rendering/DataContext.swift v1.1.0
+// Rendering/DataContext.swift v1.2.0
 /**
  * Shared observable data reference for rendering widgets.
- * Holds the processed session buffers and fusion result after pipeline execution.
+ * Holds the processed session buffers, fusion result, and active SessionDocument.
  * --- Revision History ---
+ * v1.2.0 - 2026-03-08 - Add sessionDocument for Phase 6 canvas integration.
  * v1.1.0 - 2026-03-07 - Switch from @Observable (macOS 14+) to ObservableObject (macOS 13+).
  * v1.0.0 - 2026-03-07 - Initial implementation (Phase 4: Rendering + MVP).
  */
@@ -22,6 +23,10 @@ import Foundation
 public final class DataContext: ObservableObject {
 
     // MARK: - Session Data
+
+    /// Active SessionDocument (loaded from SessionStore or created on import).
+    /// `nil` before a session is opened.
+    @Published public var sessionDocument: SessionDocument?
 
     /// Processed sensor buffers (SoA). `nil` before first file import.
     @Published public var buffers: SensorDataBuffers?

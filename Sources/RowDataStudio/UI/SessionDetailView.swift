@@ -17,6 +17,9 @@ import SwiftUI
 public struct SessionDetailView: View {
     let session: SessionDocument
     @Environment(\.dismiss) var dismiss
+    @State private var openInCanvas = false
+    @StateObject private var dataContext = DataContext()
+    @StateObject private var playheadController = PlayheadController()
 
     public var body: some View {
         ScrollView {
@@ -122,6 +125,12 @@ public struct SessionDetailView: View {
             .padding()
         }
         .navigationTitle("Session Details")
+        .navigationDestination(isPresented: $openInCanvas) {
+            RowingDeskCanvas(
+                dataContext: dataContext,
+                playheadController: playheadController
+            )
+        }
     }
 
     @ViewBuilder
@@ -208,8 +217,8 @@ public struct SessionDetailView: View {
     }
 
     private func openSession() {
-        // Phase 6: This will route to RowingDeskCanvas with session loaded
-        print("Open session: \(session.metadata.title)")
+        dataContext.sessionDocument = session
+        openInCanvas = true
     }
 
     private func exportSession() {

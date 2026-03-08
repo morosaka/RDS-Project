@@ -1,14 +1,15 @@
-// UI/WidgetContainer.swift v1.0.0
+// UI/WidgetContainer.swift v1.1.0
 /**
  * Draggable/resizable widget frame container.
  *
- * Wraps any analysis widget and provides:
- * - Drag-to-move functionality
- * - Resize handle (bottom-right corner)
- * - Selection UI (border highlight)
- * - Visibility toggle + delete actions
+ * Wraps any analysis widget content and provides:
+ * - Drag-to-move (updates WidgetState.position)
+ * - Resize handle (bottom-right corner, updates WidgetState.size)
+ * - Selection highlight border
+ * - Header bar with title, visibility toggle, delete
  *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-08 - Switch from WidgetConfig to WidgetState (real model).
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 6: Canvas & Widgets).
  */
 
@@ -16,186 +17,142 @@ import SwiftUI
 
 /// Container view for draggable/resizable widgets on the canvas.
 public struct WidgetContainer: View {
-    let config: WidgetConfig
+    let state: WidgetState
     let content: AnyView
+    let isSelected: Bool
+    let onMove: (CGPoint) -> Void
+    let onResize: (CGSize) -> Void
+    let onDelete: () -> Void
+    let onToggleVisibility: () -> Void
 
-    @State private var isDragging = false
-    @State private var isResizing = false
-    @State private var dragOffset = CGSize.zero
-    @State private var resizeOffset = CGSize.zero
+    @GestureState private var dragState = CGSize.zero
+    @GestureState private var resizeState = CGSize.zero
 
-    var position: CGPoint {
+    private var livePosition: CGPoint {
         CGPoint(
-            x: config.position.x + dragOffset.width,
-            y: config.position.y + dragOffset.height
+            x: state.position.x + dragState.width,
+            y: state.position.y + dragState.height
         )
     }
 
-    var size: CGSize {
+    private var liveSize: CGSize {
         CGSize(
-            width: max(200, config.size.width + resizeOffset.width),
-            height: max(150, config.size.height + resizeOffset.height)
+            width: max(200, state.size.width + resizeState.width),
+            height: max(150, state.size.height + resizeState.height)
         )
     }
 
     public var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Widget content
-            content
-                .frame(width: size.width, height: size.height)
-                .background(Color(.white).opacity(0.8))
-                .cornerRadius(8)
-                .border(isSelected ? Color.accentColor : Color.gray.opacity(0.3), width: 2)
-
-            // Header bar (title + actions)
-            VStack(alignment: .leading, spacing: 0) {
+        ZStack(alignment: .bottomTrailing) {
+            VStack(spacing: 0) {
+                // Header bar
                 HStack(spacing: 8) {
-                    Image(systemName: WidgetType.lineChart.icon)
+                    Image(systemName: state.type?.icon ?? "square")
                         .font(.caption)
                         .foregroundColor(.accentColor)
 
-                    Text(config.title)
+                    Text(state.title)
                         .font(.caption)
                         .fontWeight(.semibold)
                         .lineLimit(1)
 
                     Spacer()
 
-                    // Visibility toggle
-                    Button(action: toggleVisibility) {
-                        Image(systemName: config.isVisible ? "eye.fill" : "eye.slash.fill")
+                    Button(action: onToggleVisibility) {
+                        Image(systemName: state.isVisible ? "eye.fill" : "eye.slash.fill")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
 
-                    // Delete button
-                    Button(action: deleteWidget) {
+                    Button(action: onDelete) {
                         Image(systemName: "xmark")
                             .font(.caption)
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(8)
-                .background(Color.gray.opacity(0.1))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.gray.opacity(0.12))
 
-                Spacer()
+                // Widget content
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(height: 32)
+            .frame(width: liveSize.width, height: liveSize.height)
+            .background(Color.white.opacity(0.85))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.accentColor : Color.gray.opacity(0.3), lineWidth: 2)
+            )
+            .shadow(color: Color.black.opacity(isSelected ? 0.12 : 0.05), radius: isSelected ? 6 : 2)
 
-            // Resize handle (bottom-right corner)
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Image(systemName: "arrow.down.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(4)
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(4)
-                        .padding(4)
-                        .gesture(
-                            DragGesture()
-                                .onChanged { value in
-                                    isResizing = true
-                                    resizeOffset = CGSize(
-                                        width: value.translation.width,
-                                        height: value.translation.height
-                                    )
-                                }
-                                .onEnded { _ in
-                                    isResizing = false
-                                    // Persist new size
-                                    let newConfig = WidgetConfig(
-                                        type: config.type,
-                                        id: config.id,
-                                        title: config.title,
-                                        position: position,
-                                        size: size,
-                                        metricIDs: config.metricIDs,
-                                        isVisible: config.isVisible
-                                    )
-                                    updateWidget(newConfig)
-                                }
-                        )
-                }
-            }
+            // Resize handle
+            Image(systemName: "arrow.down.right")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .padding(6)
+                .background(Color.gray.opacity(0.15))
+                .cornerRadius(4)
+                .padding(4)
+                .gesture(
+                    DragGesture()
+                        .updating($resizeState) { value, state, _ in
+                            state = value.translation
+                        }
+                        .onEnded { value in
+                            let newSize = CGSize(
+                                width: max(200, self.state.size.width + value.translation.width),
+                                height: max(150, self.state.size.height + value.translation.height)
+                            )
+                            onResize(newSize)
+                        }
+                )
         }
-        .frame(width: size.width, height: size.height)
-        .position(position)
+        .position(livePosition)
         .gesture(
             DragGesture()
-                .onChanged { value in
-                    if !isResizing {
-                        isDragging = true
-                        dragOffset = value.translation
-                    }
+                .updating($dragState) { value, state, _ in
+                    state = value.translation
                 }
-                .onEnded { _ in
-                    isDragging = false
-                    // Persist new position
-                    let newConfig = WidgetConfig(
-                        type: config.type,
-                        id: config.id,
-                        title: config.title,
-                        position: position,
-                        size: size,
-                        metricIDs: config.metricIDs,
-                        isVisible: config.isVisible
+                .onEnded { value in
+                    let newPos = CGPoint(
+                        x: self.state.position.x + value.translation.width,
+                        y: self.state.position.y + value.translation.height
                     )
-                    updateWidget(newConfig)
-                    dragOffset = .zero
+                    onMove(newPos)
                 }
         )
-        .zIndex(isDragging || isResizing ? 1000 : 0)
-    }
-
-    private var isSelected: Bool {
-        false  // TODO: Integrate with canvas selection state
-    }
-
-    private func toggleVisibility() {
-        let newConfig = WidgetConfig(
-            type: config.type,
-            id: config.id,
-            title: config.title,
-            position: config.position,
-            size: config.size,
-            metricIDs: config.metricIDs,
-            isVisible: !config.isVisible
-        )
-        updateWidget(newConfig)
-    }
-
-    private func deleteWidget() {
-        // TODO: Delete from canvas
-        print("Delete widget: \(config.id)")
-    }
-
-    private func updateWidget(_ newConfig: WidgetConfig) {
-        // TODO: Update SessionDocument.canvas.widgets
-        print("Update widget: \(newConfig.id) at \(newConfig.position)")
+        .zIndex(isSelected ? 1000 : Double(state.zIndex))
     }
 }
 
 #Preview {
-    WidgetContainer(
-        config: WidgetConfig(
-            type: .lineChart,
-            title: "Velocity",
-            position: CGPoint(x: 100, y: 100),
-            size: CGSize(width: 400, height: 300),
-            metricIDs: ["fus_cal_ts_vel_inertial"]
-        ),
-        content: AnyView(
-            VStack {
-                Text("Chart Content")
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
-            .padding()
-        )
+    let state = WidgetState.make(
+        type: .lineChart,
+        position: CGPoint(x: 300, y: 200),
+        metricIDs: ["fus_cal_ts_vel_inertial"]
     )
+
+    return ZStack {
+        Color.gray.opacity(0.1).ignoresSafeArea()
+        WidgetContainer(
+            state: state,
+            content: AnyView(
+                VStack {
+                    Text("Velocity Chart")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding()
+            ),
+            isSelected: true,
+            onMove: { _ in },
+            onResize: { _ in },
+            onDelete: {},
+            onToggleVisibility: {}
+        )
+    }
 }
