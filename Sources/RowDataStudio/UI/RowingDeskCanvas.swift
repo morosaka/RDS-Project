@@ -67,40 +67,33 @@ public struct RowingDeskCanvas: View {
             // ── Canvas area ──────────────────────────────────────────────────
             GeometryReader { geo in
                 ZStack {
-                    // Background + grid (grid reads canvasPan via local state — cheap)
                     RDS.Colors.canvasBackground.ignoresSafeArea()
                     canvasGrid(size: geo.size)
 
-                    // Widget layer — re-evaluated only when widgets array or selection changes,
-                    // NOT when canvasZoom/canvasPan change (those are handled by scaleEffect/offset).
-                    ForEach(widgets.filter { $0.isVisible }) { widget in
-                        WidgetContainer(
-                            state: widget,
-                            content: { widgetContent(for: widget) },
-                            isSelected: selectedWidgetIDs.contains(widget.id),
-                            onMove:             { newPos  in commitMove(id: widget.id, to: newPos) },
-                            onResize:           { newSize in commitResize(id: widget.id, to: newSize) },
-                            onDelete:           { deleteWidget(id: widget.id) },
-                            onToggleVisibility: { toggleVisibility(id: widget.id) },
-                            onSelect:           { handleWidgetSelection(id: widget.id) },
-                            onTierToggle:       { toggleTier(id: widget.id) }
-                        )
-                        .opacity(isFocusModeActive && !selectedWidgetIDs.contains(widget.id) ? RDS.Layout.focusDimOpacity : 1.0)
-                        .allowsHitTesting(!(isFocusModeActive && !selectedWidgetIDs.contains(widget.id)))
-                        .contextMenu {
-                            if selectedWidgetIDs.count >= 2 {
-                                Button("Focus Selection") { toggleFocusMode() }
-                            }
-                        }
-                    }
+                    // CanvasWidgetLayer does NOT receive canvasZoom or canvasPan.
+                    // Transforms are applied from outside via .scaleEffect/.offset.
+                    // This means: when canvasZoom/canvasPan animate, CanvasWidgetLayer.body
+                    // is NOT called — only the render transform updates. Widget pipelines
+                    // never run during animation frames.
+                    CanvasWidgetLayer(
+                        dataContext: dataContext,
+                        playheadController: playheadController,
+                        selectedWidgetIDs: selectedWidgetIDs,
+                        isFocusModeActive: isFocusModeActive,
+                        onMove:             { id, pos  in commitMove(id: id, to: pos) },
+                        onResize:           { id, size in commitResize(id: id, to: size) },
+                        onDelete:           { id in deleteWidget(id: id) },
+                        onToggleVisibility: { id in toggleVisibility(id: id) },
+                        onSelect:           { id in handleWidgetSelection(id: id) },
+                        onTierToggle:       { id in toggleTier(id: id) },
+                        onFocusSelection:   { toggleFocusMode() }
+                    )
                 }
-                // ── Transforms applied to the canvas (local @State — no body re-eval) ──
                 .scaleEffect(canvasZoom, anchor: .topLeading)
                 .offset(
                     x: canvasPan.x + livePanDelta.width,
                     y: canvasPan.y + livePanDelta.height
                 )
-                // ── Background pan gesture ───────────────────────────────────
                 .gesture(
                     DragGesture(minimumDistance: 4)
                         .updating($livePanDelta) { value, state, _ in
@@ -121,20 +114,16 @@ public struct RowingDeskCanvas: View {
             VStack(spacing: 0) {
                 sidebarHeader
                 Divider()
-                if showWidgetPalette {
-                    widgetPalette
-                    Divider()
-                }
+                if showWidgetPalette { widgetPalette; Divider() }
                 inspectorPanel
             }
             .frame(width: 260)
             .background(Color.gray.opacity(0.05))
         }
         .onAppear {
-            // Sync local render state from persisted model on first load.
             if let canvas = dataContext.sessionDocument?.canvas {
                 canvasZoom = canvas.zoomLevel
-                canvasPan = canvas.panOffset
+                canvasPan  = canvas.panOffset
             }
             setupEventMonitor()
         }
@@ -240,90 +229,9 @@ public struct RowingDeskCanvas: View {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // MARK: - Widget content factory
-    // @ViewBuilder: no AnyView, no type erasure. Body only called when widget data changes.
-    // ─────────────────────────────────────────────────────────────────────────
-
-    @ViewBuilder
-    private func widgetContent(for widget: WidgetState) -> some View {
-        let ts = dataContext.timestamps ?? []
-        let dur = dataContext.sessionDurationMs
-        let viewport: ClosedRange<Double> = dur > 0 ? (0.0...dur) : (0.0...1.0)
-
-        switch widget.type {
-        case .lineChart:
-            let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
-            let vals = dataContext.values(for: metricID) ?? []
-            LineChartWidget(timestamps: ts, values: vals,
-                            playheadController: playheadController, viewportMs: viewport)
-
-        case .multiLineChart:
-            let ids = widget.metricIDs.isEmpty ? [dataContext.selectedMetric] : widget.metricIDs
-            let series = MultiLineChartWidget.series(from: dataContext, metricIDs: ids)
-            MultiLineChartWidget(series: series, playheadController: playheadController, viewportMs: viewport)
-
-        case .metricCard:
-            let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
-            let values = dataContext.values(for: metricID) ?? []
-            let label = metricID.components(separatedBy: "_").last ?? metricID
-            MetricCardWidget(label: label, unit: "",
-                             values: values, timestamps: ts,
-                             playheadController: playheadController)
-
-        case .strokeTable:
-            let strokes = dataContext.fusionResult?.perStrokeStats ?? []
-            let startTimes = dataContext.fusionResult?.strokes.map { $0.startTime * 1000 } ?? []
-            StrokeTableWidget(strokes: strokes, playheadController: playheadController,
-                              strokeStartTimesMs: startTimes)
-
-        case .map:
-            let lats: ContiguousArray<Float> = dataContext.buffers.map {
-                ContiguousArray($0.gps_gpmf_ts_lat.map { Float($0) })
-            } ?? []
-            let lons: ContiguousArray<Float> = dataContext.buffers.map {
-                ContiguousArray($0.gps_gpmf_ts_lon.map { Float($0) })
-            } ?? []
-            MapWidget(latitudes: lats, longitudes: lons,
-                      timestamps: ts, playheadController: playheadController)
-
-        case .empowerRadar:
-            EmpowerRadarWidget(currentStroke: nil, averageMetrics: [:],
-                               fusionResult: dataContext.fusionResult,
-                               playheadController: playheadController)
-
-        case .video:
-            let sourceIDStr = widget.configuration["sourceID"]?.value as? String
-            let sourceID = sourceIDStr.flatMap { UUID(uuidString: $0) }
-            let videoURL: URL? = {
-                if let id = sourceID,
-                   let src = dataContext.sessionDocument?.source(withID: id),
-                   case .goProVideo(_, let url, _) = src { return url }
-                if let primary = dataContext.sessionDocument?.primaryVideo,
-                   case .goProVideo(_, let url, _) = primary { return url }
-                return nil
-            }()
-            let offsetMs = widget.configuration["timeOffsetMs"]?.value as? Double ?? 0.0
-            VideoWidget(url: videoURL, timeOffsetMs: offsetMs, playheadController: playheadController)
-
-        case .none:
-            placeholderContent(widget)
-        }
-    }
-
-    private func placeholderContent(_ widget: WidgetState) -> some View {
-        VStack {
-            Image(systemName: widget.type?.icon ?? "square.dashed")
-                .font(.system(size: 28)).foregroundColor(.gray)
-            Text(widget.type?.displayName ?? widget.widgetType)
-                .font(.caption).foregroundColor(.secondary)
-            Text("Coming soon").font(.caption2).foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // MARK: - Canvas mutations (widget layout only — NOT zoom/pan)
     // ─────────────────────────────────────────────────────────────────────────
+
 
     private func addWidget(type: WidgetType) {
         let offset = CGFloat(widgets.count) * 24
@@ -553,8 +461,137 @@ public struct RowingDeskCanvas: View {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - CanvasWidgetLayer
+//
+// CRITICAL DESIGN CONSTRAINT: This struct must NOT receive canvasZoom or canvasPan
+// as parameters. If it did, every animation frame would call this body, which
+// invokes widgetContent(for:) for every widget — running expensive pipeline code.
+//
+// Transforms (.scaleEffect, .offset) are applied from OUTSIDE by RowingDeskCanvas.
+// SwiftUI applies those as render-level transforms without re-evaluating this body.
+// ─────────────────────────────────────────────────────────────────────────────
+private struct CanvasWidgetLayer: View {
+
+    @ObservedObject var dataContext: DataContext
+    let playheadController: PlayheadController
+    let selectedWidgetIDs: Set<UUID>
+    let isFocusModeActive: Bool
+
+    // Widget interaction callbacks (UUID-parameterized)
+    let onMove:             (UUID, CGPoint) -> Void
+    let onResize:           (UUID, CGSize)  -> Void
+    let onDelete:           (UUID)          -> Void
+    let onToggleVisibility: (UUID)          -> Void
+    let onSelect:           (UUID)          -> Void
+    let onTierToggle:       (UUID)          -> Void
+    let onFocusSelection:   ()              -> Void
+
+    private var widgets: [WidgetState] {
+        dataContext.sessionDocument?.canvas.widgets ?? []
+    }
+
+    var body: some View {
+        ForEach(widgets.filter { $0.isVisible }) { widget in
+            WidgetContainer(
+                state: widget,
+                content: { widgetContent(for: widget) },
+                isSelected: selectedWidgetIDs.contains(widget.id),
+                onMove:             { pos  in onMove(widget.id, pos) },
+                onResize:           { size in onResize(widget.id, size) },
+                onDelete:           { onDelete(widget.id) },
+                onToggleVisibility: { onToggleVisibility(widget.id) },
+                onSelect:           { onSelect(widget.id) },
+                onTierToggle:       { onTierToggle(widget.id) }
+            )
+            .opacity(isFocusModeActive && !selectedWidgetIDs.contains(widget.id) ? RDS.Layout.focusDimOpacity : 1.0)
+            .allowsHitTesting(!(isFocusModeActive && !selectedWidgetIDs.contains(widget.id)))
+            .contextMenu {
+                if selectedWidgetIDs.count >= 2 {
+                    Button("Focus Selection") { onFocusSelection() }
+                }
+            }
+        }
+    }
+
+    // MARK: - Widget content factory
+    @ViewBuilder
+    private func widgetContent(for widget: WidgetState) -> some View {
+        let ts = dataContext.timestamps ?? []
+        let dur = dataContext.sessionDurationMs
+        let viewport: ClosedRange<Double> = dur > 0 ? (0.0...dur) : (0.0...1.0)
+
+        switch widget.type {
+        case .lineChart:
+            let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
+            let vals = dataContext.values(for: metricID) ?? []
+            LineChartWidget(timestamps: ts, values: vals,
+                            playheadController: playheadController, viewportMs: viewport)
+
+        case .multiLineChart:
+            let ids = widget.metricIDs.isEmpty ? [dataContext.selectedMetric] : widget.metricIDs
+            let series = MultiLineChartWidget.series(from: dataContext, metricIDs: ids)
+            MultiLineChartWidget(series: series, playheadController: playheadController, viewportMs: viewport)
+
+        case .metricCard:
+            let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
+            let values = dataContext.values(for: metricID) ?? []
+            let label = metricID.components(separatedBy: "_").last ?? metricID
+            MetricCardWidget(label: label, unit: "",
+                             values: values, timestamps: ts,
+                             playheadController: playheadController)
+
+        case .strokeTable:
+            let strokes = dataContext.fusionResult?.perStrokeStats ?? []
+            let startTimes = dataContext.fusionResult?.strokes.map { $0.startTime * 1000 } ?? []
+            StrokeTableWidget(strokes: strokes, playheadController: playheadController,
+                              strokeStartTimesMs: startTimes)
+
+        case .map:
+            let lats: ContiguousArray<Float> = dataContext.buffers.map {
+                ContiguousArray($0.gps_gpmf_ts_lat.map { Float($0) })
+            } ?? []
+            let lons: ContiguousArray<Float> = dataContext.buffers.map {
+                ContiguousArray($0.gps_gpmf_ts_lon.map { Float($0) })
+            } ?? []
+            MapWidget(latitudes: lats, longitudes: lons,
+                      timestamps: ts, playheadController: playheadController)
+
+        case .empowerRadar:
+            EmpowerRadarWidget(currentStroke: nil, averageMetrics: [:],
+                               fusionResult: dataContext.fusionResult,
+                               playheadController: playheadController)
+
+        case .video:
+            let sourceIDStr = widget.configuration["sourceID"]?.value as? String
+            let sourceID = sourceIDStr.flatMap { UUID(uuidString: $0) }
+            let videoURL: URL? = {
+                if let id = sourceID,
+                   let src = dataContext.sessionDocument?.source(withID: id),
+                   case .goProVideo(_, let url, _) = src { return url }
+                if let primary = dataContext.sessionDocument?.primaryVideo,
+                   case .goProVideo(_, let url, _) = primary { return url }
+                return nil
+            }()
+            let offsetMs = widget.configuration["timeOffsetMs"]?.value as? Double ?? 0.0
+            VideoWidget(url: videoURL, timeOffsetMs: offsetMs, playheadController: playheadController)
+
+        case .none:
+            VStack {
+                Image(systemName: widget.type?.icon ?? "square.dashed")
+                    .font(.system(size: 28)).foregroundColor(.gray)
+                Text(widget.type?.displayName ?? widget.widgetType)
+                    .font(.caption).foregroundColor(.secondary)
+                Text("Coming soon").font(.caption2).foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
 #Preview {
     let dataContext = DataContext()
     let playheadController = PlayheadController()
     return RowingDeskCanvas(dataContext: dataContext, playheadController: playheadController)
 }
+
