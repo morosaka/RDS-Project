@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(swift test:*)",
-      "mcp__open-brain__capture_thought"
+      "mcp__open-brain__capture_thought",
+      "Bash(swift build:*)",
+      "Bash(xcode-select -p)"
     ]
   }
 }

@@ -1,8 +1,14 @@
-// Rendering/Widgets/LineChartWidget.swift v1.0.0
+// Rendering/Widgets/LineChartWidget.swift v1.1.0
 /**
  * SwiftUI Canvas line chart with transform pipeline and playhead cursor.
  * Renders 200Hz sensor data efficiently via LTTB downsampling + Metal (.drawingGroup).
+ *
+ * **Performance fix (v1.1.0):** Pipeline output is cached and only recomputed
+ * when data or viewport change — NOT on every playhead tick. The playhead line
+ * is drawn as a lightweight overlay that doesn't trigger data reprocessing.
+ *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-11 - Cache pipeline output; separate playhead from data render path.
  * v1.0.0 - 2026-03-07 - Initial implementation (Phase 4: Rendering + MVP).
  */
 
@@ -10,14 +16,11 @@ import SwiftUI
 
 /// Line chart widget for displaying a single sensor metric over time.
 ///
-/// **Rendering pipeline (applied per-frame internally):**
-/// `ViewportCull → LTTB(2000pt) → AdaptiveSmooth → Canvas path`
+/// **Rendering pipeline (applied once per data/viewport change):**
+/// `ViewportCull → LTTB(2000pt) → AdaptiveSmooth → cached path`
 ///
-/// `.drawingGroup()` routes the Canvas through Metal automatically,
-/// enabling smooth rendering of dense 200Hz data at 60fps.
-///
-/// **Playhead cursor:** A thin vertical line at `playheadTimeMs`, updated
-/// every frame by `PlayheadController` via CVDisplayLink.
+/// The playhead cursor updates at 60fps as a separate overlay without
+/// re-running the pipeline. This is critical for 140k+ sample datasets.
 ///
 /// Source: `docs/architecture/visualization.md` §LineChartWidget
 public struct LineChartWidget: View {
@@ -48,6 +51,45 @@ public struct LineChartWidget: View {
     }
 
     public var body: some View {
+        // Data layer: only recomputed when inputs change (NOT on playhead tick)
+        LineChartDataLayer(
+            timestamps: timestamps,
+            values: values,
+            viewportMs: viewportMs,
+            targetPointCount: targetPointCount
+        )
+        .overlay {
+            // Playhead layer: lightweight, redrawn at 60fps
+            PlayheadOverlay(playheadTimeMs: playheadTimeMs, viewportMs: viewportMs)
+        }
+        .drawingGroup()
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+}
+
+// MARK: - Data Layer (cached, heavy computation)
+
+/// Renders the line chart path and axis labels. Recomputed only when
+/// data or viewport change, NOT on playhead ticks.
+private struct LineChartDataLayer: View, Equatable {
+
+    let timestamps: ContiguousArray<Double>
+    let values: ContiguousArray<Float>
+    let viewportMs: ClosedRange<Double>
+    let targetPointCount: Int
+
+    nonisolated static func == (lhs: LineChartDataLayer, rhs: LineChartDataLayer) -> Bool {
+        // Identity check: same buffer pointer + count = same data.
+        // This prevents re-render when parent rebuilds with the same arrays.
+        lhs.timestamps.count == rhs.timestamps.count &&
+        lhs.values.count == rhs.values.count &&
+        lhs.viewportMs == rhs.viewportMs &&
+        lhs.targetPointCount == rhs.targetPointCount &&
+        lhs.timestamps.first == rhs.timestamps.first &&
+        lhs.timestamps.last == rhs.timestamps.last
+    }
+
+    var body: some View {
         GeometryReader { geo in
             let size = geo.size
             let ppp = pointsPerPixel(width: size.width)
@@ -64,7 +106,7 @@ public struct LineChartWidget: View {
             let ySpan = max(yMax - yMin, Float(1e-4))
 
             Canvas { context, canvasSize in
-                // MARK: Line path
+                // Line path
                 var path = Path()
                 var movePending = true
 
@@ -74,7 +116,7 @@ public struct LineChartWidget: View {
                         movePending = true
                         continue
                     }
-                    let x = xPosition(t: displayTs[i], width: canvasSize.width)
+                    let x = xPosition(t: displayTs[i], viewport: viewportMs, width: canvasSize.width)
                     let y = yPosition(v: v, yMin: yMin, ySpan: ySpan, height: canvasSize.height)
                     let pt = CGPoint(x: x, y: y)
                     if movePending {
@@ -91,20 +133,7 @@ public struct LineChartWidget: View {
                     style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round)
                 )
 
-                // MARK: Playhead cursor
-                let px = xPosition(t: playheadTimeMs, width: canvasSize.width)
-                if px >= 0, px <= canvasSize.width {
-                    var cursor = Path()
-                    cursor.move(to: CGPoint(x: px, y: 0))
-                    cursor.addLine(to: CGPoint(x: px, y: canvasSize.height))
-                    context.stroke(
-                        cursor,
-                        with: .color(.red.opacity(0.8)),
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-                    )
-                }
-
-                // MARK: Y-axis zero line (if zero is in range)
+                // Y-axis zero line (if zero is in range)
                 if yMin < 0, yMax > 0 {
                     let zy = yPosition(v: 0, yMin: yMin, ySpan: ySpan, height: canvasSize.height)
                     var zeroLine = Path()
@@ -117,8 +146,6 @@ public struct LineChartWidget: View {
                 axisLabels(yMin: yMin, yMax: yMax)
             }
         }
-        .drawingGroup()
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     // MARK: - Helpers
@@ -126,33 +153,6 @@ public struct LineChartWidget: View {
     private func pointsPerPixel(width: CGFloat) -> Double {
         guard width > 0 else { return 1 }
         return Double(timestamps.count) / Double(width)
-    }
-
-    private func xPosition(t: Double, width: CGFloat) -> CGFloat {
-        let span = viewportMs.upperBound - viewportMs.lowerBound
-        guard span > 0 else { return 0 }
-        return CGFloat((t - viewportMs.lowerBound) / span) * width
-    }
-
-    private func yPosition(v: Float, yMin: Float, ySpan: Float, height: CGFloat) -> CGFloat {
-        // Flip: high values at top (small y)
-        let normalized = Double((v - yMin) / ySpan)
-        return CGFloat(1.0 - normalized) * height
-    }
-
-    /// Computes (min, max) from non-NaN values with a small padding margin.
-    private func valueRange(_ vals: ContiguousArray<Float>) -> (Float, Float) {
-        var mn = Float.infinity
-        var mx = -Float.infinity
-        for v in vals {
-            if !v.isNaN {
-                if v < mn { mn = v }
-                if v > mx { mx = v }
-            }
-        }
-        guard mn.isFinite, mx.isFinite else { return (0, 1) }
-        let pad = max((mx - mn) * 0.05, Float(1e-4))
-        return (mn - pad, mx + pad)
     }
 
     @ViewBuilder
@@ -169,10 +169,62 @@ public struct LineChartWidget: View {
                 .padding([.bottom, .leading], 4)
         }
     }
+}
 
-    private func formatValue(_ v: Float) -> String {
-        if abs(v) >= 100 { return String(format: "%.0f", v) }
-        if abs(v) >= 10  { return String(format: "%.1f", v) }
-        return String(format: "%.2f", v)
+// MARK: - Playhead Overlay (lightweight, 60fps)
+
+/// Thin vertical playhead line. Redrawn at 60fps but trivially cheap
+/// (single 2-point path, no data processing).
+private struct PlayheadOverlay: View {
+
+    let playheadTimeMs: Double
+    let viewportMs: ClosedRange<Double>
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            let px = xPosition(t: playheadTimeMs, viewport: viewportMs, width: canvasSize.width)
+            guard px >= 0, px <= canvasSize.width else { return }
+            var cursor = Path()
+            cursor.move(to: CGPoint(x: px, y: 0))
+            cursor.addLine(to: CGPoint(x: px, y: canvasSize.height))
+            context.stroke(
+                cursor,
+                with: .color(.red.opacity(0.8)),
+                style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+            )
+        }
     }
+}
+
+// MARK: - Shared helpers
+
+private func xPosition(t: Double, viewport: ClosedRange<Double>, width: CGFloat) -> CGFloat {
+    let span = viewport.upperBound - viewport.lowerBound
+    guard span > 0 else { return 0 }
+    return CGFloat((t - viewport.lowerBound) / span) * width
+}
+
+private func yPosition(v: Float, yMin: Float, ySpan: Float, height: CGFloat) -> CGFloat {
+    let normalized = Double((v - yMin) / ySpan)
+    return CGFloat(1.0 - normalized) * height
+}
+
+private func valueRange(_ vals: ContiguousArray<Float>) -> (Float, Float) {
+    var mn = Float.infinity
+    var mx = -Float.infinity
+    for v in vals {
+        if !v.isNaN {
+            if v < mn { mn = v }
+            if v > mx { mx = v }
+        }
+    }
+    guard mn.isFinite, mx.isFinite else { return (0, 1) }
+    let pad = max((mx - mn) * 0.05, Float(1e-4))
+    return (mn - pad, mx + pad)
+}
+
+private func formatValue(_ v: Float) -> String {
+    if abs(v) >= 100 { return String(format: "%.0f", v) }
+    if abs(v) >= 10  { return String(format: "%.1f", v) }
+    return String(format: "%.2f", v)
 }

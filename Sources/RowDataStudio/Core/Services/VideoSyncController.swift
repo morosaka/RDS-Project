@@ -41,8 +41,6 @@ public final class VideoSyncController: ObservableObject, @unchecked Sendable {
     }
 
     public func bind(to playheadController: PlayheadController) {
-        weak var weakPC = playheadController
-
         // Propagate video duration to PlayheadController when PC has no data source yet.
         // This allows the video widget to drive playback standalone (without GPMF pipeline).
         $videoDuration
@@ -57,14 +55,14 @@ public final class VideoSyncController: ObservableObject, @unchecked Sendable {
         // Handle play/pause state changes
         playheadController.$isPlaying
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] isPlaying in
-                guard let self = self, let pc = weakPC else { return }
+            .sink { [weak self, weak playheadController] isPlaying in
+                guard let self = self, let pc = playheadController else { return }
                 if isPlaying {
                     // Start playback: seek to current position, then set rate
                     let targetSeconds = (pc.currentTimeMs + self.timeOffsetMs) / 1000.0
                     let targetTime = CMTime(seconds: targetSeconds, preferredTimescale: 600)
-                    self.player.seek(to: targetTime) { [weak self] _ in
-                        guard let self = self, let pc = weakPC, pc.isPlaying else { return }
+                    self.player.seek(to: targetTime) { [weak self, weak playheadController] _ in
+                        guard let self = self, let pc = playheadController, pc.isPlaying else { return }
                         DispatchQueue.main.async {
                             self.player.rate = Float(pc.playbackRate)
                         }
@@ -84,8 +82,8 @@ public final class VideoSyncController: ObservableObject, @unchecked Sendable {
         playheadController.$currentTimeMs
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] ms in
-                guard let self = self, let pc = weakPC, !pc.isPlaying else { return }
+            .sink { [weak self, weak playheadController] ms in
+                guard let self = self, let pc = playheadController, !pc.isPlaying else { return }
                 self.seekToPlayhead(ms)
             }
             .store(in: &cancellables)
@@ -96,8 +94,8 @@ public final class VideoSyncController: ObservableObject, @unchecked Sendable {
         timeObserverToken = player.addPeriodicTimeObserver(
             forInterval: interval,
             queue: .main
-        ) { [weak self] currentTime in
-            guard let self = self, let pc = weakPC, pc.isPlaying else { return }
+        ) { [weak self, weak playheadController] currentTime in
+            guard let self = self, let pc = playheadController, pc.isPlaying else { return }
             let expectedSeconds = (pc.currentTimeMs + self.timeOffsetMs) / 1000.0
             let drift = abs(currentTime.seconds - expectedSeconds)
 

@@ -1,4 +1,4 @@
-// UI/SessionDetailView.swift v1.0.0
+// UI/SessionDetailView.swift v1.1.0
 /**
  * Session detail view with metadata, data sources, and action buttons.
  *
@@ -8,6 +8,8 @@
  * - Open session button to load into canvas
  *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-11 - Connect data pipeline: openSession() now calls FileImportHelper.process()
+ *                        to populate DataContext.buffers before navigating to canvas.
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 5: Session Management).
  */
 
@@ -22,6 +24,8 @@ public struct SessionDetailView: View {
     let session: SessionDocument
     @Environment(\.dismiss) var dismiss
     @State private var openInCanvas = false
+    @State private var isProcessing = false
+    @State private var processingError: String?
     @StateObject private var dataContext = DataContext()
     @StateObject private var playheadController = PlayheadController()
 
@@ -102,16 +106,45 @@ public struct SessionDetailView: View {
                     .padding()
                 }
 
+                // Processing error
+                if let error = processingError {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+
                 // Action buttons
                 VStack(spacing: 12) {
-                    Button(action: { openSession() }) {
-                        Label("Open Session", systemImage: "arrow.right")
+                    Button(action: { Task { await openSession() } }) {
+                        if isProcessing {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Processing data...")
+                            }
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.accentColor)
+                            .background(Color.accentColor.opacity(0.5))
                             .foregroundColor(.white)
                             .cornerRadius(8)
+                        } else {
+                            Label("Open Session", systemImage: "arrow.right")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.accentColor)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                        }
                     }
+                    .disabled(isProcessing)
 
                     Button(action: { exportSession() }) {
                         Label("Export Data", systemImage: "arrow.up.doc")
@@ -121,6 +154,7 @@ public struct SessionDetailView: View {
                             .foregroundColor(.primary)
                             .cornerRadius(8)
                     }
+                    .disabled(isProcessing)
                 }
                 .padding()
 
@@ -220,8 +254,44 @@ public struct SessionDetailView: View {
         return String(format: "%d:%02d", minutes, secs)
     }
 
-    private func openSession() {
+    private func openSession() async {
+        isProcessing = true
+        processingError = nil
+
+        // 1. Set the session document (provides widget layout + source URLs)
         dataContext.sessionDocument = session
+
+        // 2. Extract video URL (required for GPMF telemetry)
+        guard let videoSource = session.sources.first(where: {
+            if case .goProVideo = $0 { return true }
+            return false
+        }) else {
+            // No video source — open canvas anyway (may have FIT/CSV only)
+            isProcessing = false
+            openInCanvas = true
+            return
+        }
+
+        // 3. Extract optional FIT URL
+        let fitURL: URL? = session.sources.compactMap { source -> URL? in
+            if case .fitFile(_, let url, _) = source { return url }
+            return nil
+        }.first
+
+        // 4. Run the full processing pipeline (GPMF → FIT → Sync → Fusion)
+        do {
+            try await FileImportHelper.process(
+                videoURL: videoSource.url,
+                fitURL: fitURL,
+                dataContext: dataContext,
+                playhead: playheadController
+            )
+        } catch {
+            processingError = error.localizedDescription
+            // Still allow opening canvas — video will work, data widgets will show empty
+        }
+
+        isProcessing = false
         openInCanvas = true
     }
 

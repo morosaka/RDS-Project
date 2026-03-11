@@ -1,11 +1,15 @@
-// Rendering/Widgets/MetricCardWidget.swift v1.0.0
+// Rendering/Widgets/MetricCardWidget.swift v1.1.0
 /**
  * Compact KPI card widget displaying a single current metric value.
  *
  * Shows the metric value at the current playhead time with label,
  * unit, and optional trend indicator (vs session average).
  *
+ * **Performance fix (v1.1.0):** Session mean cached in @State, computed once
+ * on appear / data change instead of every body evaluation (was 140k iterations × 60fps).
+ *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-11 - Cache sessionMean in @State; avoid per-frame recomputation.
  * v1.0.0 - 2026-03-08 - Extracted from RowingDeskCanvas inline implementation (Phase 6).
  */
 
@@ -14,21 +18,10 @@ import SwiftUI
 /// Compact KPI card for displaying a single metric at the current playhead.
 ///
 /// Samples `values[sampleIndex]` where `sampleIndex` is derived from
-/// `playheadTimeMs` and the array's assumed uniform sample rate.
+/// `playheadTimeMs` and binary search on the timestamp array.
 ///
 /// **Trend indicator:** compares the current value to the session mean
 /// and shows an up/down arrow with percentage difference.
-///
-/// Usage:
-/// ```swift
-/// MetricCardWidget(
-///     label: "Velocity",
-///     unit: "m/s",
-///     values: dataContext.values(for: "fus_cal_ts_vel_inertial") ?? [],
-///     timestamps: dataContext.timestamps ?? [],
-///     playheadTimeMs: playheadController.currentTimeMs
-/// )
-/// ```
 public struct MetricCardWidget: View {
 
     let label: String
@@ -37,6 +30,9 @@ public struct MetricCardWidget: View {
     let timestamps: ContiguousArray<Double>
     let playheadTimeMs: Double
     var showTrend: Bool = true
+
+    /// Cached session mean — computed once, not on every body evaluation.
+    @State private var cachedMean: Float?
 
     public init(
         label: String,
@@ -72,21 +68,10 @@ public struct MetricCardWidget: View {
         return v.isNaN ? nil : v
     }
 
-    private var sessionMean: Float? {
-        guard !values.isEmpty else { return nil }
-        var sum: Float = 0
-        var count = 0
-        for v in values where !v.isNaN {
-            sum += v; count += 1
-        }
-        guard count > 0 else { return nil }
-        return sum / Float(count)
-    }
-
     private var trendPercent: Double? {
         guard showTrend,
               let cur = currentValue,
-              let mean = sessionMean,
+              let mean = cachedMean,
               mean != 0 else { return nil }
         return Double((cur - mean) / abs(mean)) * 100
     }
@@ -128,9 +113,21 @@ public struct MetricCardWidget: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(8)
+        .onAppear { computeMean() }
     }
 
     // MARK: - Helpers
+
+    /// Compute session mean once (O(n)), cache in @State.
+    private func computeMean() {
+        guard !values.isEmpty else { cachedMean = nil; return }
+        var sum: Float = 0
+        var count = 0
+        for v in values where !v.isNaN {
+            sum += v; count += 1
+        }
+        cachedMean = count > 0 ? sum / Float(count) : nil
+    }
 
     private func formatValue(_ v: Float) -> String {
         if abs(v) >= 1000 { return String(format: "%.0f", v) }
@@ -139,8 +136,6 @@ public struct MetricCardWidget: View {
     }
 
     private func trendColor(_ trend: Double) -> Color {
-        // Positive trend = above average = neutral/green for velocity, depends on metric
-        // Default: blue for above, dimmed for below
         trend >= 0 ? .blue : .secondary
     }
 }

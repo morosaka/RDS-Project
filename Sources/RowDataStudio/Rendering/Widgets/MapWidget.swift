@@ -1,4 +1,4 @@
-// Rendering/Widgets/MapWidget.swift v1.0.0
+// Rendering/Widgets/MapWidget.swift v1.1.0
 /**
  * GPS track map widget using MapKit.
  *
@@ -9,7 +9,11 @@
  * GPS coordinates are read from DataContext.buffers.dynamic:
  *   "gps_gpmf_ts_lat" / "gps_gpmf_ts_lon" (GPMF track, ~10Hz)
  *
+ * **Performance fix (v1.1.0):** Binary search for playhead index (was O(n) linear scan).
+ * Track coordinates computed once and cached, not rebuilt every frame.
+ *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-11 - Binary search playheadIndex; cache track coords.
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 6: Canvas & Widgets).
  */
 
@@ -32,6 +36,8 @@ public struct MapWidget: View {
     let playheadTimeMs: Double
 
     @State private var region: MKCoordinateRegion
+    /// Track coordinates computed once and cached (avoids 140k alloc per frame).
+    @State private var cachedTrackCoords: [CLLocationCoordinate2D] = []
 
     public init(
         latitudes: ContiguousArray<Float>,
@@ -56,16 +62,22 @@ public struct MapWidget: View {
         !latitudes.isEmpty && latitudes.count == longitudes.count
     }
 
-    /// Index of the GPS sample closest to the playhead time.
+    /// Index of the GPS sample closest to the playhead time (binary search, O(log n)).
     private var playheadIndex: Int? {
         guard hasData, !timestamps.isEmpty else { return nil }
-        var closest = 0
-        var minDiff = Double.infinity
-        for (i, t) in timestamps.enumerated() {
-            let diff = abs(t - playheadTimeMs)
-            if diff < minDiff { minDiff = diff; closest = i }
+        var lo = 0, hi = timestamps.count - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if timestamps[mid] < playheadTimeMs { lo = mid + 1 }
+            else { hi = mid }
         }
-        return closest
+        // lo is now the first index >= playheadTimeMs; check if lo-1 is closer
+        if lo > 0 {
+            let diffLo = abs(timestamps[lo] - playheadTimeMs)
+            let diffPrev = abs(timestamps[lo - 1] - playheadTimeMs)
+            if diffPrev < diffLo { return lo - 1 }
+        }
+        return lo
     }
 
     private var playheadCoordinate: CLLocationCoordinate2D? {
@@ -80,6 +92,10 @@ public struct MapWidget: View {
     public var body: some View {
         if hasData {
             mapView
+                .onAppear {
+                    buildTrackCoords()
+                    fitRegionToTrack()
+                }
         } else {
             noDataPlaceholder
         }
@@ -98,29 +114,20 @@ public struct MapWidget: View {
             }
         }
         .overlay(trackOverlay)
-        .onAppear {
-            fitRegionToTrack()
-        }
     }
 
     @ViewBuilder
     private var trackOverlay: some View {
-        // Draw GPS track as a Canvas polyline (Map overlay API minimal on macOS 13)
+        // Draw GPS track as a Canvas polyline using cached coordinates
         Canvas { context, size in
-            guard hasData else { return }
-            let coords = zip(latitudes, longitudes).map {
-                CLLocationCoordinate2D(latitude: Double($0.0), longitude: Double($0.1))
-            }.filter { $0.latitude.isFinite && $0.longitude.isFinite }
-
-            guard coords.count >= 2 else { return }
-            // Convert to map-proportional screen points relative to region
+            guard cachedTrackCoords.count >= 2 else { return }
             let latSpan = region.span.latitudeDelta
             let lonSpan = region.span.longitudeDelta
             let centerLat = region.center.latitude
             let centerLon = region.center.longitude
 
             var path = Path()
-            for (i, coord) in coords.enumerated() {
+            for (i, coord) in cachedTrackCoords.enumerated() {
                 let x = ((coord.longitude - centerLon) / lonSpan + 0.5) * size.width
                 let y = (0.5 - (coord.latitude - centerLat) / latSpan) * size.height
                 let pt = CGPoint(x: x, y: y)
@@ -156,9 +163,18 @@ public struct MapWidget: View {
 
     // MARK: - Helpers
 
-    private var playheadAnnotations: [AnnotationItem] {
+    private var playheadAnnotations: [MapAnnotationItem] {
         guard let coord = playheadCoordinate else { return [] }
-        return [AnnotationItem(coordinate: coord)]
+        return [MapAnnotationItem(coordinate: coord)]
+    }
+
+    /// Build track coordinates once (called in onAppear).
+    private func buildTrackCoords() {
+        cachedTrackCoords = zip(latitudes, longitudes).compactMap { lat, lon in
+            let la = Double(lat), lo = Double(lon)
+            guard la.isFinite, lo.isFinite else { return nil }
+            return CLLocationCoordinate2D(latitude: la, longitude: lo)
+        }
     }
 
     private func fitRegionToTrack() {
@@ -187,7 +203,6 @@ public struct MapWidget: View {
         lons: ContiguousArray<Float>
     ) -> CLLocationCoordinate2D {
         guard !lats.isEmpty else {
-            // Default: Oxford Isis (rowing heartland)
             return CLLocationCoordinate2D(latitude: 51.7520, longitude: -1.2577)
         }
         let lat = lats.reduce(0, +) / Float(lats.count)
@@ -198,13 +213,12 @@ public struct MapWidget: View {
 
 // MARK: - Supporting types
 
-private struct AnnotationItem: Identifiable {
+private struct MapAnnotationItem: Identifiable {
     let id = UUID()
     let coordinate: CLLocationCoordinate2D
 }
 
 #Preview {
-    // Simulate a short GPS track (Oxford Isis)
     let lats: ContiguousArray<Float> = [51.7520, 51.7521, 51.7523, 51.7525, 51.7528]
     let lons: ContiguousArray<Float> = [-1.2577, -1.2575, -1.2572, -1.2568, -1.2563]
     let ts: ContiguousArray<Double>  = [0, 5000, 10000, 15000, 20000]

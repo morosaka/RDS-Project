@@ -96,7 +96,7 @@ public struct TimelineRuler: View {
 
                 // Draw label for major ticks
                 if let label = label, !isMinor {
-                    var text = Text(label)
+                    let text = Text(label)
                         .font(.system(.caption2, design: .monospaced))
                         .foregroundColor(.secondary)
                     context.draw(
