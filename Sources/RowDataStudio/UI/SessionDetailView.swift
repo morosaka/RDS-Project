@@ -15,6 +15,10 @@ import SwiftUI
 
 /// Displays detailed information about a session.
 public struct SessionDetailView: View {
+    public init(session: SessionDocument) {
+        self.session = session
+    }
+    
     let session: SessionDocument
     @Environment(\.dismiss) var dismiss
     @State private var openInCanvas = false

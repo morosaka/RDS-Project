@@ -17,6 +17,8 @@ import SwiftUI
 
 /// Manages file import with drag-and-drop and file picker.
 public struct ImportView: View {
+    public init() {}
+    
     @State private var isImporting = false
     @State private var importProgress: Double = 0
     @State private var importError: String?

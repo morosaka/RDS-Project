@@ -31,13 +31,6 @@ let package = Package(
             path: "Sources/RowDataStudio"
         ),
 
-        // Executable target: thin @main entry point only
-        .executableTarget(
-            name: "RowDataStudioApp",
-            dependencies: ["RowDataStudio"],
-            path: "Sources/RowDataStudioApp"
-        ),
-
         // Test target: unit + integration tests for app logic
         .testTarget(
             name: "RowDataStudioTests",

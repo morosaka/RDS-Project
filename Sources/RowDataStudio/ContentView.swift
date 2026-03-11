@@ -23,6 +23,7 @@ import UniformTypeIdentifiers
 /// This view is intentionally minimal. The infinite canvas and multi-widget layout
 /// arrive in Phase 6 (`RowingDeskCanvas`).
 public struct ContentView: View {
+    public init() {}
 
     @StateObject private var dataContext = DataContext()
     @StateObject private var playhead = PlayheadController()
@@ -39,8 +40,6 @@ public struct ContentView: View {
         ("imu_flt_ts_acc_surge",    "Surge Accel — filtered (m/s²)"),
         ("phys_ext_ts_hr",          "Heart Rate (bpm)"),
     ]
-
-    public init() {}
 
     public var body: some View {
         VStack(spacing: 0) {

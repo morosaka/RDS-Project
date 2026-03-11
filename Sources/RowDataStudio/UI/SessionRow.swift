@@ -13,6 +13,10 @@ import SwiftUI
 
 /// Displays a single session in a list.
 public struct SessionRow: View {
+    public init(session: SessionDocument) {
+        self.session = session
+    }
+    
     let session: SessionDocument
 
     public var body: some View {

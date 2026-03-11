@@ -19,6 +19,7 @@ typealias UIColor = NSColor
 /// Displays a list of saved sessions.
 public struct SessionListView: View {
     public init() {}
+    
     @State private var sessions: [SessionDocument] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
