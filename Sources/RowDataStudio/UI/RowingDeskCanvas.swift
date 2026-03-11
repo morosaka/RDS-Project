@@ -262,8 +262,14 @@ public struct RowingDeskCanvas: View {
             ))
 
         case .map:
-            let lats = dataContext.buffers?.dynamic["gps_gpmf_ts_lat"] ?? []
-            let lons = dataContext.buffers?.dynamic["gps_gpmf_ts_lon"] ?? []
+            // GPS lat/lon are Double (precision required) in named buffer fields,
+            // not in the Float-typed `dynamic` dictionary. Convert to Float for MapWidget.
+            let lats: ContiguousArray<Float> = dataContext.buffers.map {
+                ContiguousArray($0.gps_gpmf_ts_lat.map { Float($0) })
+            } ?? []
+            let lons: ContiguousArray<Float> = dataContext.buffers.map {
+                ContiguousArray($0.gps_gpmf_ts_lon.map { Float($0) })
+            } ?? []
             return AnyView(MapWidget(
                 latitudes: lats, longitudes: lons,
                 timestamps: ts, playheadTimeMs: playheadMs

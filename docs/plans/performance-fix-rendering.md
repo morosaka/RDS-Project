@@ -122,7 +122,45 @@ La soluzione strutturale per Phase 8 dovrebbe considerare:
 
 | File | Tipo modifica |
 |------|---------------|
-| `Rendering/Widgets/LineChartWidget.swift` | Cache pipeline output |
-| `Rendering/Widgets/MultiLineChartWidget.swift` | Cache pipeline output |
-| `Rendering/Widgets/MetricCardWidget.swift` | Cache sessionMean |
-| `Rendering/Widgets/MapWidget.swift` | Binary search + cache coords |
+| `Rendering/Widgets/LineChartWidget.swift` | Cache pipeline output via Equatable data layer |
+| `Rendering/Widgets/MultiLineChartWidget.swift` | Cache pipeline output via Equatable data layer |
+| `Rendering/Widgets/MetricCardWidget.swift` | Cache sessionMean in @State |
+| `Rendering/Widgets/MapWidget.swift` | Binary search + cache coords in @State |
+| `UI/RowingDeskCanvas.swift` | Fix GPS data: read named fields instead of `dynamic` dict |
+| `UI/Timeline/TimelineRuler.swift` | Fix `var` → `let` warning |
+| `Core/Services/VideoSyncController.swift` | Fix weak capture warnings (3×) |
+
+---
+
+## Bug risolti in questa sessione
+
+### GPS Track sempre vuoto (MapWidget)
+
+`RowingDeskCanvas.widgetContent(for:)` leggeva lat/lon da `buffers.dynamic["gps_gpmf_ts_lat"]`,
+ma queste chiavi non esistono nel dizionario `dynamic` (`[String: ContiguousArray<Float>]`).
+I dati GPS sono nei campi named `buffers.gps_gpmf_ts_lat` / `gps_gpmf_ts_lon` di tipo
+`ContiguousArray<Double>`. Fix: lettura diretta dai campi named + conversione Double→Float.
+
+---
+
+## Problemi noti — da affrontare in Phase 8
+
+### MapWidget: traccia GPS deformata con aspect ratio non 1:1
+
+La traccia è disegnata come Canvas overlay con proiezione lineare semplificata
+(`(lon - center) / lonSpan`), mentre il Map sottostante usa proiezione Mercator.
+Quando il widget viene ridimensionato con aspect ratio diverso da ~1:1, le due
+proiezioni divergono e la traccia non si sovrappone correttamente alla mappa.
+
+**Soluzione corretta:** Usare `MKPolylineOverlay` nativo (AppKit `MKMapView` via
+`NSViewRepresentable`, oppure SwiftUI `MapPolyline` se target macOS 14+).
+Questo garantisce che la traccia segua la proiezione della mappa a qualsiasi aspect ratio.
+
+### TimelineView non integrata nel layout
+
+`TimelineView` (ruler + track bars + playhead) è completa ma non montata in nessuna vista.
+Va integrata come barra orizzontale sotto il canvas, stile NLE (Final Cut/DaVinci).
+
+### Dettagli UI generali
+
+Vari problemi di layout, styling e interazione da catalogare e affrontare durante il polish.
