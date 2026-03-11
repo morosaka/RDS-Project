@@ -24,9 +24,17 @@ public struct RowingDeskCanvas: View {
     @ObservedObject var dataContext: DataContext
     @ObservedObject var playheadController: PlayheadController
 
-    @State private var selectedWidgetID: UUID?
+    @State private var selectedWidgetIDs: Set<UUID> = []
     @State private var showWidgetPalette = false
     @State private var eventMonitor: Any?
+
+    // 8b.2 Z-Ordering
+    @State private var nextZIndex: Int = 1
+
+    // 8b.4 Focus Mode
+    @State private var isFocusModeActive: Bool = false
+    @State private var preFocusZoomLevel: Double = 1.0
+    @State private var preFocusPanOffset: CGPoint = .zero
 
     // Live pan state (committed to sessionDocument on gesture end)
     @GestureState private var livePanDelta = CGSize.zero
@@ -52,7 +60,7 @@ public struct RowingDeskCanvas: View {
             GeometryReader { geo in
                 ZStack {
                     // Background + grid
-                    Color.gray.opacity(0.08)
+                    RDS.Colors.canvasBackground
                         .ignoresSafeArea()
 
                     canvasGrid(size: geo.size)
@@ -62,13 +70,21 @@ public struct RowingDeskCanvas: View {
                         WidgetContainer(
                             state: widget,
                             content: widgetContent(for: widget),
-                            isSelected: selectedWidgetID == widget.id,
+                            isSelected: selectedWidgetIDs.contains(widget.id),
                             onMove:            { newPos   in commitMove(id: widget.id, to: newPos) },
                             onResize:          { newSize  in commitResize(id: widget.id, to: newSize) },
                             onDelete:          { deleteWidget(id: widget.id) },
-                            onToggleVisibility: { toggleVisibility(id: widget.id) }
+                            onToggleVisibility: { toggleVisibility(id: widget.id) },
+                            onSelect:          { handleWidgetSelection(id: widget.id) },
+                            onTierToggle:      { toggleTier(id: widget.id) }
                         )
-                        .onTapGesture { selectedWidgetID = widget.id }
+                        .opacity(isFocusModeActive && !selectedWidgetIDs.contains(widget.id) ? RDS.Layout.focusDimOpacity : 1.0)
+                        .allowsHitTesting(!(isFocusModeActive && !selectedWidgetIDs.contains(widget.id)))
+                        .contextMenu {
+                            if selectedWidgetIDs.count >= 2 {
+                                Button("Focus Selection") { toggleFocusMode() }
+                            }
+                        }
                     }
                 }
                 .scaleEffect(effectiveZoom, anchor: .topLeading)
@@ -85,7 +101,7 @@ public struct RowingDeskCanvas: View {
                             commitPan(delta: value.translation)
                         }
                 )
-                .onTapGesture { selectedWidgetID = nil }
+                .onTapGesture { selectedWidgetIDs = [] }
             }
 
             // ── Right sidebar ─────────────────────────────────────────
@@ -154,7 +170,7 @@ public struct RowingDeskCanvas: View {
 
     @ViewBuilder
     private var inspectorPanel: some View {
-        if let id = selectedWidgetID,
+        if let id = selectedWidgetIDs.first, selectedWidgetIDs.count == 1,
            let widget = canvas.widgets.first(where: { $0.id == id }) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -190,6 +206,17 @@ public struct RowingDeskCanvas: View {
                     Spacer()
                 }
                 .padding(.vertical)
+            }
+        } else if selectedWidgetIDs.count > 1 {
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "square.dashed.inset.filled")
+                    .font(.system(size: 28))
+                    .foregroundColor(.gray)
+                Text("\(selectedWidgetIDs.count) widgets selected")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
             }
         } else {
             VStack(spacing: 10) {
@@ -350,7 +377,7 @@ public struct RowingDeskCanvas: View {
         )
         let newWidget = WidgetState.make(type: type, position: pos)
         mutateCanvas { $0.widgets.append(newWidget) }
-        selectedWidgetID = newWidget.id
+        selectedWidgetIDs = [newWidget.id]
         showWidgetPalette = false
     }
 
@@ -372,7 +399,7 @@ public struct RowingDeskCanvas: View {
 
     private func deleteWidget(id: UUID) {
         mutateCanvas { $0.widgets.removeAll { $0.id == id } }
-        if selectedWidgetID == id { selectedWidgetID = nil }
+        selectedWidgetIDs.remove(id)
     }
 
     private func toggleVisibility(id: UUID) {
@@ -395,7 +422,99 @@ public struct RowingDeskCanvas: View {
 
     private func commitZoom(factor: CGFloat) {
         mutateCanvas { canvas in
-            canvas.zoomLevel = max(0.25, min(4.0, canvas.zoomLevel * Double(factor)))
+            canvas.zoomLevel = max(RDS.Layout.canvasZoomMin, min(RDS.Layout.canvasZoomMax, canvas.zoomLevel * Double(factor)))
+        }
+    }
+
+    private func handleWidgetSelection(id: UUID) {
+        let isCmdPressed = NSEvent.modifierFlags.contains(.command)
+        if isCmdPressed {
+            if selectedWidgetIDs.contains(id) {
+                selectedWidgetIDs.remove(id)
+            } else {
+                selectedWidgetIDs.insert(id)
+            }
+        } else {
+            selectedWidgetIDs = [id]
+        }
+        
+        mutateCanvas { canvas in
+            if let idx = canvas.widgets.firstIndex(where: { $0.id == id }) {
+                canvas.widgets[idx].zIndex = nextZIndex
+                nextZIndex += 1
+            }
+        }
+    }
+
+    private func toggleTier(id: UUID) {
+        mutateCanvas { canvas in
+            guard let i = canvas.widgets.firstIndex(where: { $0.id == id }) else { return }
+            let isPrimary = canvas.widgets[i].isPrimaryTier
+            let newPrimary = !isPrimary
+            canvas.widgets[i].configuration["isPrimaryTier"] = AnyCodable(newPrimary)
+            
+            let defaultSize = canvas.widgets[i].type?.defaultSize ?? CGSize(width: 400, height: 300)
+            
+            withAnimation(RDS.Springs.snapToGrid) {
+                if newPrimary {
+                    canvas.widgets[i].size = defaultSize
+                } else {
+                    canvas.widgets[i].size = CGSize(width: defaultSize.width * 0.5, height: defaultSize.height * 0.5)
+                }
+            }
+        }
+    }
+
+    private func toggleFocusMode() {
+        if isFocusModeActive {
+            withAnimation(RDS.Springs.focusModeZoom) {
+                isFocusModeActive = false
+                mutateCanvas { canvas in
+                    canvas.zoomLevel = preFocusZoomLevel
+                    canvas.panOffset = preFocusPanOffset
+                }
+            }
+        } else {
+            if selectedWidgetIDs.isEmpty { return }
+            
+            preFocusZoomLevel = canvas.zoomLevel
+            preFocusPanOffset = canvas.panOffset
+            
+            let selectedWidgets = canvas.widgets.filter { selectedWidgetIDs.contains($0.id) }
+            var minX: CGFloat = .infinity
+            var minY: CGFloat = .infinity
+            var maxX: CGFloat = -.infinity
+            var maxY: CGFloat = -.infinity
+            
+            for w in selectedWidgets {
+                minX = min(minX, w.position.x)
+                minY = min(minY, w.position.y)
+                maxX = max(maxX, w.position.x + w.size.width)
+                maxY = max(maxY, w.position.y + w.size.height)
+            }
+            let rect = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+            let padding: CGFloat = 20
+            
+            let viewportWidth: CGFloat = 1024
+            let viewportHeight: CGFloat = 768
+            
+            let scaleX = viewportWidth / (rect.width + padding * 2)
+            let scaleY = viewportHeight / (rect.height + padding * 2)
+            let targetZoom = max(RDS.Layout.canvasZoomMin, min(RDS.Layout.canvasZoomMax, Double(min(scaleX, scaleY))))
+            
+            let centerX = rect.midX
+            let centerY = rect.midY
+            
+            let targetPanX = (viewportWidth / 2) - (centerX * CGFloat(targetZoom))
+            let targetPanY = (viewportHeight / 2) - (centerY * CGFloat(targetZoom))
+            
+            withAnimation(RDS.Springs.focusModeZoom) {
+                isFocusModeActive = true
+                mutateCanvas { canvas in
+                    canvas.zoomLevel = targetZoom
+                    canvas.panOffset = CGPoint(x: targetPanX, y: targetPanY)
+                }
+            }
         }
     }
 
@@ -409,17 +528,30 @@ public struct RowingDeskCanvas: View {
         eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.magnify, .keyDown]) { event in
             switch event.type {
             case .magnify:
-                // event.magnification is the delta for this event (e.g. 0.02 = 2% zoom).
                 let factor = max(0.25, min(4.0, 1.0 + event.magnification))
                 if dc.sessionDocument != nil {
                     dc.sessionDocument!.canvas.zoomLevel = max(
-                        0.25, min(4.0, dc.sessionDocument!.canvas.zoomLevel * Double(factor))
+                        RDS.Layout.canvasZoomMin, min(RDS.Layout.canvasZoomMax, dc.sessionDocument!.canvas.zoomLevel * Double(factor))
                     )
                 }
                 return nil
 
-            case .keyDown where event.keyCode == 49:  // 49 = spacebar
+            case .keyDown where event.keyCode == 49:  // Spacebar
                 if pc.isPlaying { pc.pause() } else { pc.play() }
+                return nil
+
+            case .keyDown where event.keyCode == 3: // 3 = f
+                Task { @MainActor in self.toggleFocusMode() }
+                return nil
+
+            case .keyDown where event.keyCode == 53: // 53 = Esc
+                Task { @MainActor in
+                    if self.isFocusModeActive {
+                        self.toggleFocusMode()
+                    } else if !self.selectedWidgetIDs.isEmpty {
+                        self.selectedWidgetIDs = []
+                    }
+                }
                 return nil
 
             default:

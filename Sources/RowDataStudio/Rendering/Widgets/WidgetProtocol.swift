@@ -92,6 +92,11 @@ extension WidgetState {
         (configuration["isVisible"]?.value as? Bool) ?? true
     }
 
+    /// Widget tier. Primary = full-size, Secondary = compact.
+    public var isPrimaryTier: Bool {
+        (configuration["isPrimaryTier"]?.value as? Bool) ?? true
+    }
+
     /// Creates a WidgetState for a given type at a canvas position.
     public static func make(
         type: WidgetType,
