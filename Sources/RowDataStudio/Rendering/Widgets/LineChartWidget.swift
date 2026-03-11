@@ -30,8 +30,10 @@ public struct LineChartWidget: View {
     let timestamps: ContiguousArray<Double>
     /// Full value array (parallel to timestamps; NaN = missing data).
     let values: ContiguousArray<Float>
-    /// Shared playhead controller — observed only by the PlayheadOverlay, not by the data layer.
-    @ObservedObject var playheadController: PlayheadController
+    /// Shared playhead controller — plain `let`, NOT @ObservedObject.
+    /// Only `PlayheadOverlay` (a child view) subscribes to its 60fps updates.
+    /// This struct's body does NOT react to playhead changes.
+    let playheadController: PlayheadController
     /// Visible time range in milliseconds.
     let viewportMs: ClosedRange<Double>
     /// Maximum display points after LTTB. Default: 2000.
@@ -52,7 +54,6 @@ public struct LineChartWidget: View {
     }
 
     public var body: some View {
-        // Data layer: only recomputed when inputs change (NOT on playhead tick)
         LineChartDataLayer(
             timestamps: timestamps,
             values: values,
@@ -60,8 +61,8 @@ public struct LineChartWidget: View {
             targetPointCount: targetPointCount
         )
         .overlay {
-            // Playhead layer: lightweight, redrawn at 60fps
-            PlayheadOverlay(playheadTimeMs: playheadController.currentTimeMs, viewportMs: viewportMs)
+            // Playhead layer: has its own @ObservedObject — only this tiny view redraws at 60fps.
+            PlayheadOverlay(playheadController: playheadController, viewportMs: viewportMs)
         }
         .drawingGroup()
         .background(Color(nsColor: .windowBackgroundColor))
@@ -174,16 +175,17 @@ private struct LineChartDataLayer: View, Equatable {
 
 // MARK: - Playhead Overlay (lightweight, 60fps)
 
-/// Thin vertical playhead line. Redrawn at 60fps but trivially cheap
-/// (single 2-point path, no data processing).
+/// Thin vertical playhead line. Subscribes to `PlayheadController` via its own
+/// `@ObservedObject` — ONLY this view redraws at 60fps, the parent `LineChartWidget`
+/// and the heavy `LineChartDataLayer` are completely untouched.
 private struct PlayheadOverlay: View {
 
-    let playheadTimeMs: Double
+    @ObservedObject var playheadController: PlayheadController
     let viewportMs: ClosedRange<Double>
 
     var body: some View {
         Canvas { context, canvasSize in
-            let px = xPosition(t: playheadTimeMs, viewport: viewportMs, width: canvasSize.width)
+            let px = xPosition(t: playheadController.currentTimeMs, viewport: viewportMs, width: canvasSize.width)
             guard px >= 0, px <= canvasSize.width else { return }
             var cursor = Path()
             cursor.move(to: CGPoint(x: px, y: 0))

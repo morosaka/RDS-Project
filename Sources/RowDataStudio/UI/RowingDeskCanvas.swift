@@ -32,6 +32,8 @@ public struct RowingDeskCanvas: View {
     @State private var selectedWidgetIDs: Set<UUID> = []
     @State private var showWidgetPalette = false
     @State private var eventMonitor: Any?
+    // Fix 3: debounce disk persistence — only write ~0.5s after last mutation
+    @State private var saveDebounceTask: Task<Void, Never>?
 
     // 8b.2 Z-Ordering
     @State private var nextZIndex: Int = 1
@@ -74,14 +76,14 @@ public struct RowingDeskCanvas: View {
                     ForEach(canvas.widgets.filter { $0.isVisible }) { widget in
                         WidgetContainer(
                             state: widget,
-                            content: widgetContent(for: widget),
+                            content: { widgetContent(for: widget) },
                             isSelected: selectedWidgetIDs.contains(widget.id),
-                            onMove:            { newPos   in commitMove(id: widget.id, to: newPos) },
-                            onResize:          { newSize  in commitResize(id: widget.id, to: newSize) },
-                            onDelete:          { deleteWidget(id: widget.id) },
+                            onMove:             { newPos  in commitMove(id: widget.id, to: newPos) },
+                            onResize:           { newSize in commitResize(id: widget.id, to: newSize) },
+                            onDelete:           { deleteWidget(id: widget.id) },
                             onToggleVisibility: { toggleVisibility(id: widget.id) },
-                            onSelect:          { handleWidgetSelection(id: widget.id) },
-                            onTierToggle:      { toggleTier(id: widget.id) }
+                            onSelect:           { handleWidgetSelection(id: widget.id) },
+                            onTierToggle:       { toggleTier(id: widget.id) }
                         )
                         .opacity(isFocusModeActive && !selectedWidgetIDs.contains(widget.id) ? RDS.Layout.focusDimOpacity : 1.0)
                         .allowsHitTesting(!(isFocusModeActive && !selectedWidgetIDs.contains(widget.id)))
@@ -251,79 +253,75 @@ public struct RowingDeskCanvas: View {
     }
 
     // MARK: - Widget content factory
-
-    private func widgetContent(for widget: WidgetState) -> AnyView {
+    // @ViewBuilder preserves concrete type identity — NO AnyView, NO type erasure.
+    // SwiftUI can diff the view tree properly, only recomputing on real data changes.
+    @ViewBuilder
+    private func widgetContent(for widget: WidgetState) -> some View {
         let ts = dataContext.timestamps ?? []
         let dur = dataContext.sessionDurationMs
         let viewport: ClosedRange<Double> = dur > 0 ? (0.0...dur) : (0.0...1.0)
         // NOTE: We do NOT read playheadController.currentTimeMs here.
-        // Each widget observes playheadController internally, so the canvas
-        // body is NOT invalidated at 60fps.
+        // Widgets observe playheadController internally, so the canvas body is NOT
+        // invalidated at 60fps — only the tiny child overlays re-render.
 
         switch widget.type {
         case .lineChart:
             let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
             let vals = dataContext.values(for: metricID) ?? []
-            return AnyView(LineChartWidget(
+            LineChartWidget(
                 timestamps: ts, values: vals,
                 playheadController: playheadController, viewportMs: viewport
-            ))
+            )
 
         case .multiLineChart:
             let ids = widget.metricIDs.isEmpty ? [dataContext.selectedMetric] : widget.metricIDs
             let series = MultiLineChartWidget.series(from: dataContext, metricIDs: ids)
-            return AnyView(MultiLineChartWidget(
+            MultiLineChartWidget(
                 series: series, playheadController: playheadController, viewportMs: viewport
-            ))
+            )
 
         case .metricCard:
             let metricID = widget.metricIDs.first ?? dataContext.selectedMetric
             let values = dataContext.values(for: metricID) ?? []
             let label = metricID.components(separatedBy: "_").last ?? metricID
-            return AnyView(MetricCardWidget(
+            MetricCardWidget(
                 label: label, unit: "",
                 values: values, timestamps: ts,
                 playheadController: playheadController
-            ))
+            )
 
         case .strokeTable:
             let strokes = dataContext.fusionResult?.perStrokeStats ?? []
             let startTimes = dataContext.fusionResult?.strokes.map { $0.startTime * 1000 } ?? []
-            return AnyView(StrokeTableWidget(
+            StrokeTableWidget(
                 strokes: strokes,
                 playheadController: playheadController,
                 strokeStartTimesMs: startTimes
-            ))
+            )
 
         case .map:
-            // GPS lat/lon are Double (precision required) in named buffer fields,
-            // not in the Float-typed `dynamic` dictionary. Convert to Float for MapWidget.
             let lats: ContiguousArray<Float> = dataContext.buffers.map {
                 ContiguousArray($0.gps_gpmf_ts_lat.map { Float($0) })
             } ?? []
             let lons: ContiguousArray<Float> = dataContext.buffers.map {
                 ContiguousArray($0.gps_gpmf_ts_lon.map { Float($0) })
             } ?? []
-            return AnyView(MapWidget(
+            MapWidget(
                 latitudes: lats, longitudes: lons,
                 timestamps: ts, playheadController: playheadController
-            ))
+            )
 
         case .empowerRadar:
-            let result = dataContext.fusionResult
-            return AnyView(EmpowerRadarWidget(
+            EmpowerRadarWidget(
                 currentStroke: nil,
                 averageMetrics: [:],
-                fusionResult: result,
+                fusionResult: dataContext.fusionResult,
                 playheadController: playheadController
-            ))
+            )
 
         case .video:
-            // Extract video source ID from widget configuration
             let sourceIDStr = widget.configuration["sourceID"]?.value as? String
             let sourceID = sourceIDStr.flatMap { UUID(uuidString: $0) }
-            
-            // Find video URL from session
             let videoURL: URL? = {
                 if let id = sourceID,
                    let src = dataContext.sessionDocument?.source(withID: id),
@@ -332,17 +330,11 @@ public struct RowingDeskCanvas: View {
                    case .goProVideo(_, let url, _) = primary { return url }
                 return nil
             }()
-            
             let offsetMs = widget.configuration["timeOffsetMs"]?.value as? Double ?? 0.0
-            
-            return AnyView(VideoWidget(
-                url: videoURL,
-                timeOffsetMs: offsetMs,
-                playheadController: playheadController
-            ))
+            VideoWidget(url: videoURL, timeOffsetMs: offsetMs, playheadController: playheadController)
 
         case .none:
-            return AnyView(placeholderContent(widget))
+            placeholderContent(widget)
         }
     }
 
@@ -562,12 +554,17 @@ public struct RowingDeskCanvas: View {
         }
     }
 
-    /// Single mutation point — modifies sessionDocument.canvas and persists async.
+    /// Single mutation point — modifies sessionDocument.canvas and debounces disk persistence.
+    /// Disk write is deferred 0.5s after the last mutation to avoid per-frame I/O.
     private func mutateCanvas(_ mutation: (inout CanvasState) -> Void) {
         guard dataContext.sessionDocument != nil else { return }
         mutation(&dataContext.sessionDocument!.canvas)
-        Task {
-            guard let doc = dataContext.sessionDocument else { return }
+        // Cancel previous pending save, schedule a new one.
+        saveDebounceTask?.cancel()
+        let doc = dataContext.sessionDocument
+        saveDebounceTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 s
+            guard !Task.isCancelled, let doc else { return }
             if let store = try? SessionStore() {
                 try? await store.save(doc)
             }

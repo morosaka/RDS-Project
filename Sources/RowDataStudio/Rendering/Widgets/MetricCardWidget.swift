@@ -28,7 +28,8 @@ public struct MetricCardWidget: View {
     let unit: String
     let values: ContiguousArray<Float>
     let timestamps: ContiguousArray<Double>
-    @ObservedObject var playheadController: PlayheadController
+    /// Plain `let` — NOT @ObservedObject. Only `MetricValueView` subscribes to 60fps updates.
+    let playheadController: PlayheadController
     var showTrend: Bool = true
 
     /// Cached session mean — computed once, not on every body evaluation.
@@ -50,15 +51,57 @@ public struct MetricCardWidget: View {
         self.showTrend = showTrend
     }
 
+    public var body: some View {
+        VStack(spacing: 6) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            // Only this child view re-renders at 60fps — the label and layout above do not.
+            MetricValueView(
+                values: values,
+                timestamps: timestamps,
+                cachedMean: cachedMean,
+                unit: unit,
+                showTrend: showTrend,
+                playheadController: playheadController
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(8)
+        .onAppear { computeMean() }
+    }
+
+    private func computeMean() {
+        guard !values.isEmpty else { cachedMean = nil; return }
+        var sum: Float = 0
+        var count = 0
+        for v in values where !v.isNaN {
+            sum += v; count += 1
+        }
+        cachedMean = count > 0 ? sum / Float(count) : nil
+    }
+}
+
+// MARK: - MetricValueView (60fps child)
+
+/// Only this child struct subscribes to PlayheadController's updates.
+/// The parent MetricCardWidget body (label, layout, padding) does NOT re-run.
+private struct MetricValueView: View {
+    let values: ContiguousArray<Float>
+    let timestamps: ContiguousArray<Double>
+    let cachedMean: Float?
+    let unit: String
+    let showTrend: Bool
+    @ObservedObject var playheadController: PlayheadController
+
     private var currentIndex: Int {
         guard !timestamps.isEmpty else { return 0 }
-        let playheadTimeMs = playheadController.currentTimeMs
-        // Binary-search for nearest timestamp
+        let t = playheadController.currentTimeMs
         var lo = 0, hi = timestamps.count - 1
         while lo < hi {
             let mid = (lo + hi) / 2
-            if timestamps[mid] < playheadTimeMs { lo = mid + 1 }
-            else { hi = mid }
+            if timestamps[mid] < t { lo = mid + 1 } else { hi = mid }
         }
         return lo
     }
@@ -77,15 +120,8 @@ public struct MetricCardWidget: View {
         return Double((cur - mean) / abs(mean)) * 100
     }
 
-    public var body: some View {
-        VStack(spacing: 6) {
-            // Label
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            // Value
+    var body: some View {
+        VStack(spacing: 4) {
             if let v = currentValue {
                 HStack(alignment: .lastTextBaseline, spacing: 2) {
                     Text(formatValue(v))
@@ -99,8 +135,6 @@ public struct MetricCardWidget: View {
                     .font(.system(size: 32, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
-
-            // Trend vs mean
             if let trend = trendPercent {
                 HStack(spacing: 2) {
                     Image(systemName: trend >= 0 ? "arrow.up" : "arrow.down")
@@ -109,35 +143,15 @@ public struct MetricCardWidget: View {
                         .font(.caption2)
                         .monospaced()
                 }
-                .foregroundStyle(trendColor(trend))
+                .foregroundStyle(trend >= 0 ? Color.blue : Color.secondary)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(8)
-        .onAppear { computeMean() }
-    }
-
-    // MARK: - Helpers
-
-    /// Compute session mean once (O(n)), cache in @State.
-    private func computeMean() {
-        guard !values.isEmpty else { cachedMean = nil; return }
-        var sum: Float = 0
-        var count = 0
-        for v in values where !v.isNaN {
-            sum += v; count += 1
-        }
-        cachedMean = count > 0 ? sum / Float(count) : nil
     }
 
     private func formatValue(_ v: Float) -> String {
         if abs(v) >= 1000 { return String(format: "%.0f", v) }
         if abs(v) >= 100  { return String(format: "%.1f", v) }
         return String(format: "%.2f", v)
-    }
-
-    private func trendColor(_ trend: Double) -> Color {
-        trend >= 0 ? .blue : .secondary
     }
 }
 

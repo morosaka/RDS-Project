@@ -17,9 +17,12 @@ import SwiftUI
 import AppKit
 
 /// Container view for draggable/resizable widgets on the canvas.
-public struct WidgetContainer: View {
+///
+/// Generic over `Content` to preserve SwiftUI's structural identity — avoids
+/// `AnyView` type erasure which defeats diffing and forces full re-creation.
+public struct WidgetContainer<Content: View>: View {
     public let state: WidgetState
-    public let content: AnyView
+    public let content: Content
     public let isSelected: Bool
     public let onMove: (CGPoint) -> Void
     public let onResize: (CGSize) -> Void
@@ -30,7 +33,7 @@ public struct WidgetContainer: View {
 
     public init(
         state: WidgetState,
-        content: AnyView,
+        @ViewBuilder content: () -> Content,
         isSelected: Bool,
         onMove: @escaping (CGPoint) -> Void,
         onResize: @escaping (CGSize) -> Void,
@@ -40,7 +43,7 @@ public struct WidgetContainer: View {
         onTierToggle: @escaping () -> Void = {}
     ) {
         self.state = state
-        self.content = content
+        self.content = content()
         self.isSelected = isSelected
         self.onMove = onMove
         self.onResize = onResize

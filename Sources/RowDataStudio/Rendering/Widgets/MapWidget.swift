@@ -33,7 +33,8 @@ public struct MapWidget: View {
     let latitudes: ContiguousArray<Float>
     let longitudes: ContiguousArray<Float>
     let timestamps: ContiguousArray<Double>
-    @ObservedObject var playheadController: PlayheadController
+    /// Plain `let` — NOT @ObservedObject. The heavy map body does not re-run at 60fps.
+    let playheadController: PlayheadController
 
     @State private var region: MKCoordinateRegion
     /// Track coordinates computed once and cached (avoids 140k alloc per frame).
@@ -62,34 +63,6 @@ public struct MapWidget: View {
         !latitudes.isEmpty && latitudes.count == longitudes.count
     }
 
-    /// Index of the GPS sample closest to the playhead time (binary search, O(log n)).
-    private var playheadIndex: Int? {
-        guard hasData, !timestamps.isEmpty else { return nil }
-        let playheadMs = playheadController.currentTimeMs
-        var lo = 0, hi = timestamps.count - 1
-        while lo < hi {
-            let mid = (lo + hi) / 2
-            if timestamps[mid] < playheadMs { lo = mid + 1 }
-            else { hi = mid }
-        }
-        // lo is now the first index >= playheadMs; check if lo-1 is closer
-        if lo > 0 {
-            let diffLo = abs(timestamps[lo] - playheadMs)
-            let diffPrev = abs(timestamps[lo - 1] - playheadMs)
-            if diffPrev < diffLo { return lo - 1 }
-        }
-        return lo
-    }
-
-    private var playheadCoordinate: CLLocationCoordinate2D? {
-        guard let i = playheadIndex,
-              i < latitudes.count else { return nil }
-        let lat = Double(latitudes[i])
-        let lon = Double(longitudes[i])
-        guard lat.isFinite, lon.isFinite else { return nil }
-        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
-    }
-
     public var body: some View {
         if hasData {
             mapView
@@ -106,15 +79,19 @@ public struct MapWidget: View {
 
     @ViewBuilder
     private var mapView: some View {
-        Map(coordinateRegion: $region, annotationItems: playheadAnnotations) { item in
-            MapAnnotation(coordinate: item.coordinate) {
-                Circle()
-                    .fill(.red)
-                    .frame(width: 10, height: 10)
-                    .overlay(Circle().stroke(.white, lineWidth: 2))
-            }
-        }
+        // MapKit view — does NOT re-render 60fps; only the marker child does.
+        Map(coordinateRegion: $region)
         .overlay(trackOverlay)
+        .overlay {
+            // Only this child view observes the playhead controller at 60fps.
+            MapPlayheadMarker(
+                latitudes: latitudes,
+                longitudes: longitudes,
+                timestamps: timestamps,
+                region: region,
+                playheadController: playheadController
+            )
+        }
     }
 
     @ViewBuilder
@@ -163,11 +140,6 @@ public struct MapWidget: View {
     }
 
     // MARK: - Helpers
-
-    private var playheadAnnotations: [MapAnnotationItem] {
-        guard let coord = playheadCoordinate else { return [] }
-        return [MapAnnotationItem(coordinate: coord)]
-    }
 
     /// Build track coordinates once (called in onAppear).
     private func buildTrackCoords() {
@@ -232,4 +204,49 @@ private struct MapAnnotationItem: Identifiable {
         playheadController: pc
     )
     .frame(width: 400, height: 400)
+}
+
+// MARK: - MapPlayheadMarker (60fps child)
+
+/// Only this child struct subscribes to PlayheadController \u2014 the parent MapWidget
+/// (which renders the static track polyline via Canvas) does NOT re-run at 60fps.
+private struct MapPlayheadMarker: View {
+    let latitudes: ContiguousArray<Float>
+    let longitudes: ContiguousArray<Float>
+    let timestamps: ContiguousArray<Double>
+    let region: MKCoordinateRegion
+    @ObservedObject var playheadController: PlayheadController
+
+    private var playheadCoordinate: CLLocationCoordinate2D? {
+        guard !timestamps.isEmpty, !latitudes.isEmpty else { return nil }
+        let t = playheadController.currentTimeMs
+        var lo = 0, hi = timestamps.count - 1
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if timestamps[mid] < t { lo = mid + 1 } else { hi = mid }
+        }
+        if lo > 0 {
+            let diffLo = abs(timestamps[lo] - t)
+            let diffPrev = abs(timestamps[lo - 1] - t)
+            if diffPrev < diffLo { lo = lo - 1 }
+        }
+        let lat = Double(latitudes[lo])
+        let lon = Double(longitudes[lo])
+        guard lat.isFinite, lon.isFinite else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    var body: some View {
+        Canvas { context, size in
+            guard let coord = playheadCoordinate else { return }
+            let latSpan = region.span.latitudeDelta
+            let lonSpan = region.span.longitudeDelta
+            guard latSpan > 0, lonSpan > 0 else { return }
+            let x = ((coord.longitude - region.center.longitude) / lonSpan + 0.5) * size.width
+            let y = (0.5 - (coord.latitude - region.center.latitude) / latSpan) * size.height
+            let rect = CGRect(x: x - 5, y: y - 5, width: 10, height: 10)
+            context.fill(Path(ellipseIn: rect), with: .color(.red))
+            context.stroke(Path(ellipseIn: rect), with: .color(.white), lineWidth: 2)
+        }
+    }
 }

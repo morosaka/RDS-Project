@@ -26,7 +26,8 @@ import SwiftUI
 public struct StrokeTableWidget: View {
 
     let strokes: [PerStrokeStat]
-    @ObservedObject var playheadController: PlayheadController
+    /// Plain `let` — NOT @ObservedObject. The parent widget body does not re-run at 60fps.
+    let playheadController: PlayheadController
     /// Parallel array: stroke start times in ms (from StrokeEvent), used for row highlighting.
     let strokeStartTimesMs: [Double]
 
@@ -40,18 +41,6 @@ public struct StrokeTableWidget: View {
         self.strokeStartTimesMs = strokeStartTimesMs
     }
 
-    private var activeIndex: Int? {
-        guard !strokeStartTimesMs.isEmpty else { return nil }
-        let playheadMs = playheadController.currentTimeMs
-        // Find last stroke that started before or at playhead
-        var result: Int? = nil
-        for (i, t) in strokeStartTimesMs.enumerated() {
-            if t <= playheadMs { result = i }
-            else { break }
-        }
-        return result
-    }
-
     public var body: some View {
         VStack(spacing: 0) {
             tableHeader
@@ -59,24 +48,12 @@ public struct StrokeTableWidget: View {
             if strokes.isEmpty {
                 emptyState
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 0, pinnedViews: []) {
-                            ForEach(Array(strokes.enumerated()), id: \.offset) { idx, stat in
-                                tableRow(stat, index: idx, isActive: activeIndex == idx)
-                                    .id(idx)
-                                Divider().opacity(0.5)
-                            }
-                        }
-                    }
-                    .onChange(of: activeIndex) { newIdx in
-                        if let i = newIdx {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                proxy.scrollTo(i, anchor: .center)
-                            }
-                        }
-                    }
-                }
+                // Only StrokeActiveRowView has @ObservedObject — it alone reacts to 60fps ticks.
+                StrokeActiveRowView(
+                    strokes: strokes,
+                    strokeStartTimesMs: strokeStartTimesMs,
+                    playheadController: playheadController
+                )
             }
         }
     }
@@ -106,7 +83,7 @@ public struct StrokeTableWidget: View {
 
     // MARK: - Row
 
-    private func tableRow(_ stat: PerStrokeStat, index: Int, isActive: Bool) -> some View {
+    fileprivate static func makeRow(_ stat: PerStrokeStat, index: Int, isActive: Bool) -> some View {
         HStack(spacing: 0) {
             dataCell(String(format: "%03d", stat.strokeIndex + 1), width: 36, mono: true)
             dataCell(formatRate(stat.strokeRate),                   width: 52, mono: true)
@@ -120,7 +97,7 @@ public struct StrokeTableWidget: View {
         .contentShape(Rectangle())
     }
 
-    private func dataCell(_ value: String, width: CGFloat, mono: Bool) -> some View {
+    private static func dataCell(_ value: String, width: CGFloat, mono: Bool) -> some View {
         Text(value)
             .font(mono ? .system(size: 11, design: .monospaced) : .system(size: 11))
             .foregroundStyle(.primary)
@@ -145,23 +122,64 @@ public struct StrokeTableWidget: View {
 
     // MARK: - Formatters
 
-    private func formatRate(_ spm: Double) -> String {
+    fileprivate static func formatRate(_ spm: Double) -> String {
         String(format: "%.1f", spm)
     }
 
-    private func formatDist(_ d: Double?) -> String {
+    fileprivate static func formatDist(_ d: Double?) -> String {
         guard let d else { return "--" }
         return String(format: "%.1fm", d)
     }
 
-    private func formatVel(_ v: Double?) -> String {
+    fileprivate static func formatVel(_ v: Double?) -> String {
         guard let v else { return "--" }
         return String(format: "%.2f", v)
     }
 
-    private func formatHR(_ hr: Double?) -> String {
+    fileprivate static func formatHR(_ hr: Double?) -> String {
         guard let hr else { return "--" }
         return String(format: "%.0f", hr)
+    }
+}
+
+// MARK: - StrokeActiveRowView (60fps child)
+
+/// Only this child struct has @ObservedObject — the LazyVStack with 200+ rows re-renders
+/// only to update the active highlight, not from the parent widget changing.
+private struct StrokeActiveRowView: View {
+    let strokes: [PerStrokeStat]
+    let strokeStartTimesMs: [Double]
+    @ObservedObject var playheadController: PlayheadController
+
+    private var activeIndex: Int? {
+        guard !strokeStartTimesMs.isEmpty else { return nil }
+        let t = playheadController.currentTimeMs
+        var result: Int? = nil
+        for (i, ts) in strokeStartTimesMs.enumerated() {
+            if ts <= t { result = i } else { break }
+        }
+        return result
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0, pinnedViews: []) {
+                    ForEach(Array(strokes.enumerated()), id: \.offset) { idx, stat in
+                        StrokeTableWidget.makeRow(stat, index: idx, isActive: activeIndex == idx)
+                            .id(idx)
+                        Divider().opacity(0.5)
+                    }
+                }
+            }
+            .onChange(of: activeIndex) { newIdx in
+                if let i = newIdx {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(i, anchor: .center)
+                    }
+                }
+            }
+        }
     }
 }
 
