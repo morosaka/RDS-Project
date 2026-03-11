@@ -71,10 +71,10 @@ public struct RowingDeskCanvas: View {
                     canvasGrid(size: geo.size)
 
                     // CanvasWidgetLayer does NOT receive canvasZoom or canvasPan.
-                    // Transforms are applied from outside via .scaleEffect/.offset.
-                    // This means: when canvasZoom/canvasPan animate, CanvasWidgetLayer.body
-                    // is NOT called — only the render transform updates. Widget pipelines
-                    // never run during animation frames.
+                    // Transforms applied from outside via .scaleEffect/.offset.
+                    // .equatable() uses the custom == that ignores closures — body is
+                    // NEVER called during animation frames because selectedWidgetIDs and
+                    // isFocusModeActive don't change while canvasZoom interpolates.
                     CanvasWidgetLayer(
                         dataContext: dataContext,
                         playheadController: playheadController,
@@ -88,6 +88,7 @@ public struct RowingDeskCanvas: View {
                         onTierToggle:       { id in toggleTier(id: id) },
                         onFocusSelection:   { toggleFocusMode() }
                     )
+                    .equatable()  // ← Key: custom == ignores closures, skips body during animation
                 }
                 .scaleEffect(canvasZoom, anchor: .topLeading)
                 .offset(
@@ -471,7 +472,21 @@ public struct RowingDeskCanvas: View {
 // Transforms (.scaleEffect, .offset) are applied from OUTSIDE by RowingDeskCanvas.
 // SwiftUI applies those as render-level transforms without re-evaluating this body.
 // ─────────────────────────────────────────────────────────────────────────────
-private struct CanvasWidgetLayer: View {
+private struct CanvasWidgetLayer: View, Equatable {
+
+    // MARK: - Equatable (used by .equatable() in RowingDeskCanvas.body)
+    //
+    // Closures are NEVER equal across SwiftUI body calls (Swift doesn't compare function
+    // references). Without a custom ==, SwiftUI would always consider CanvasWidgetLayer
+    // "changed" and re-evaluate its body on every animation frame.
+    //
+    // We only compare the props that should actually trigger a body re-eval.
+    // Closures are intentionally excluded — they are functionally stable.
+    nonisolated static func == (lhs: CanvasWidgetLayer, rhs: CanvasWidgetLayer) -> Bool {
+        lhs.selectedWidgetIDs == rhs.selectedWidgetIDs &&
+        lhs.isFocusModeActive == rhs.isFocusModeActive
+        // dataContext: @ObservedObject — SwiftUI handles this separately
+    }
 
     @ObservedObject var dataContext: DataContext
     let playheadController: PlayheadController

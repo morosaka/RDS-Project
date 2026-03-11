@@ -46,10 +46,11 @@ public struct EmpowerRadarWidget: View {
     }
 
     let fusionResult: FusionResult?
-    @ObservedObject var playheadController: PlayheadController
+    /// Plain `let` — NOT @ObservedObject. Only child proxy observes the playhead.
+    let playheadController: PlayheadController
     let axes: [Axis]
 
-    /// Convenience init for canvas factory — computes active stroke from fusionResult + playhead.
+    /// Convenience init for canvas factory.
     public init(
         currentStroke: PerStrokeStat?,
         averageMetrics: [String: Double],
@@ -94,13 +95,49 @@ public struct EmpowerRadarWidget: View {
         Axis(label: "Slip",         key: "mech_ext_ps_slip",         referenceMax: 15,  inverted: true),
     ]
 
-    private var hasData: Bool {
-        currentStroke != nil || !averageMetrics.isEmpty
+    public var body: some View {
+        EmpowerPlayheadProxy(
+            fusionResult: fusionResult,
+            playheadController: playheadController,
+            axes: axes
+        )
+    }
+}
+
+// MARK: - EmpowerPlayheadProxy (60fps child)
+
+/// Only this struct subscribes to PlayheadController — the heavy radar Canvas
+/// and geometry calculations are isolated here at an appropriate granularity.
+private struct EmpowerPlayheadProxy: View {
+    typealias Axis = EmpowerRadarWidget.Axis
+
+    let fusionResult: FusionResult?
+    @ObservedObject var playheadController: PlayheadController
+    let axes: [Axis]
+
+    private var currentStroke: PerStrokeStat? {
+        guard let r = fusionResult else { return nil }
+        let t = playheadController.currentTimeMs
+        return r.perStrokeStats.last(where: { stat in
+            guard let stroke = r.strokes.first(where: { $0.index == stat.strokeIndex }) else { return false }
+            return stroke.startTime * 1000 <= t
+        })
     }
 
-    public var body: some View {
-        if hasData {
-            radarView
+    private var averageMetrics: [String: Double] {
+        guard let r = fusionResult else { return [:] }
+        var sums = [String: Double](); var counts = [String: Int]()
+        for stat in r.perStrokeStats {
+            for (k, v) in stat.metrics { sums[k, default: 0] += v; counts[k, default: 0] += 1 }
+        }
+        return sums.reduce(into: [:]) { acc, pair in
+            acc[pair.key] = pair.value / Double(counts[pair.key] ?? 1)
+        }
+    }
+
+    var body: some View {
+        if currentStroke != nil || !averageMetrics.isEmpty {
+            radarCanvas
         } else {
             noDataPlaceholder
         }
@@ -108,7 +145,7 @@ public struct EmpowerRadarWidget: View {
 
     // MARK: - Radar
 
-    private var radarView: some View {
+    fileprivate var radarCanvas: some View {
         GeometryReader { geo in
             let size = geo.size
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
