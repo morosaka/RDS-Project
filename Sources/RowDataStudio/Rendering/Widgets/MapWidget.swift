@@ -33,7 +33,7 @@ public struct MapWidget: View {
     let latitudes: ContiguousArray<Float>
     let longitudes: ContiguousArray<Float>
     let timestamps: ContiguousArray<Double>
-    let playheadTimeMs: Double
+    @ObservedObject var playheadController: PlayheadController
 
     @State private var region: MKCoordinateRegion
     /// Track coordinates computed once and cached (avoids 140k alloc per frame).
@@ -43,12 +43,12 @@ public struct MapWidget: View {
         latitudes: ContiguousArray<Float>,
         longitudes: ContiguousArray<Float>,
         timestamps: ContiguousArray<Double>,
-        playheadTimeMs: Double
+        playheadController: PlayheadController
     ) {
         self.latitudes = latitudes
         self.longitudes = longitudes
         self.timestamps = timestamps
-        self.playheadTimeMs = playheadTimeMs
+        self.playheadController = playheadController
 
         // Initial region: center on mean GPS position (or default to Oxford)
         let center = Self.meanCoordinate(lats: latitudes, lons: longitudes)
@@ -65,16 +65,17 @@ public struct MapWidget: View {
     /// Index of the GPS sample closest to the playhead time (binary search, O(log n)).
     private var playheadIndex: Int? {
         guard hasData, !timestamps.isEmpty else { return nil }
+        let playheadMs = playheadController.currentTimeMs
         var lo = 0, hi = timestamps.count - 1
         while lo < hi {
             let mid = (lo + hi) / 2
-            if timestamps[mid] < playheadTimeMs { lo = mid + 1 }
+            if timestamps[mid] < playheadMs { lo = mid + 1 }
             else { hi = mid }
         }
-        // lo is now the first index >= playheadTimeMs; check if lo-1 is closer
+        // lo is now the first index >= playheadMs; check if lo-1 is closer
         if lo > 0 {
-            let diffLo = abs(timestamps[lo] - playheadTimeMs)
-            let diffPrev = abs(timestamps[lo - 1] - playheadTimeMs)
+            let diffLo = abs(timestamps[lo] - playheadMs)
+            let diffPrev = abs(timestamps[lo - 1] - playheadMs)
             if diffPrev < diffLo { return lo - 1 }
         }
         return lo
@@ -223,11 +224,12 @@ private struct MapAnnotationItem: Identifiable {
     let lons: ContiguousArray<Float> = [-1.2577, -1.2575, -1.2572, -1.2568, -1.2563]
     let ts: ContiguousArray<Double>  = [0, 5000, 10000, 15000, 20000]
 
-    return MapWidget(
+    let pc = PlayheadController()
+    MapWidget(
         latitudes: lats,
         longitudes: lons,
         timestamps: ts,
-        playheadTimeMs: 10_000
+        playheadController: pc
     )
     .frame(width: 400, height: 400)
 }

@@ -1,7 +1,8 @@
-// Tests/RowDataStudioTests/Rendering/Widgets/StrokeTableWidgetTests.swift v1.0.0
+// Tests/RowDataStudioTests/Rendering/Widgets/StrokeTableWidgetTests.swift v1.1.0
 /**
  * Tests for StrokeTableWidget data logic and formatting.
  * --- Revision History ---
+ * v1.1.0 - 2026-03-11 - Update to PlayheadController API; add @MainActor for View init.
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 6: Canvas & Widgets).
  */
 
@@ -29,10 +30,12 @@ struct StrokeTableWidgetTests {
     // MARK: - Active index selection
 
     @Test("Active index is nil when no start times provided")
+    @MainActor
     func activeIndexEmptyStartTimes() {
+        let pc = PlayheadController()
         let widget = StrokeTableWidget(
             strokes: [makeStat(index: 0)],
-            playheadTimeMs: 5000,
+            playheadController: pc,
             strokeStartTimesMs: []
         )
         // Cannot access private activeIndex directly — test via public initializer completing without crash
@@ -40,11 +43,13 @@ struct StrokeTableWidgetTests {
     }
 
     @Test("Strokes array preserved correctly")
+    @MainActor
     func strokesPreserved() {
         let stats = (0..<5).map { makeStat(index: $0) }
+        let pc = PlayheadController()
         let widget = StrokeTableWidget(
             strokes: stats,
-            playheadTimeMs: 0,
+            playheadController: pc,
             strokeStartTimesMs: []
         )
         #expect(widget.strokes.count == 5)
@@ -96,32 +101,38 @@ struct StrokeTableWidgetTests {
     // MARK: - Edge cases
 
     @Test("Empty strokes array is valid")
+    @MainActor
     func emptyStrokes() {
+        let pc = PlayheadController()
         let widget = StrokeTableWidget(
             strokes: [],
-            playheadTimeMs: 0,
+            playheadController: pc,
             strokeStartTimesMs: []
         )
         #expect(widget.strokes.isEmpty)
     }
 
     @Test("Single stroke")
+    @MainActor
     func singleStroke() {
+        let pc = PlayheadController()
         let widget = StrokeTableWidget(
             strokes: [makeStat(index: 0)],
-            playheadTimeMs: 1000,
+            playheadController: pc,
             strokeStartTimesMs: [0]
         )
         #expect(widget.strokes.count == 1)
     }
 
     @Test("Start times count may differ from strokes count (graceful)")
+    @MainActor
     func mismatchedCounts() {
         let strokes = (0..<10).map { makeStat(index: $0) }
         let starts = [0.0, 2500.0]  // only 2 start times for 10 strokes
+        let pc = PlayheadController()
         let widget = StrokeTableWidget(
             strokes: strokes,
-            playheadTimeMs: 1000,
+            playheadController: pc,
             strokeStartTimesMs: starts
         )
         #expect(widget.strokes.count == 10)

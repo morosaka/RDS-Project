@@ -28,7 +28,7 @@ public struct MetricCardWidget: View {
     let unit: String
     let values: ContiguousArray<Float>
     let timestamps: ContiguousArray<Double>
-    let playheadTimeMs: Double
+    @ObservedObject var playheadController: PlayheadController
     var showTrend: Bool = true
 
     /// Cached session mean — computed once, not on every body evaluation.
@@ -39,19 +39,20 @@ public struct MetricCardWidget: View {
         unit: String,
         values: ContiguousArray<Float>,
         timestamps: ContiguousArray<Double>,
-        playheadTimeMs: Double,
+        playheadController: PlayheadController,
         showTrend: Bool = true
     ) {
         self.label = label
         self.unit = unit
         self.values = values
         self.timestamps = timestamps
-        self.playheadTimeMs = playheadTimeMs
+        self.playheadController = playheadController
         self.showTrend = showTrend
     }
 
     private var currentIndex: Int {
         guard !timestamps.isEmpty else { return 0 }
+        let playheadTimeMs = playheadController.currentTimeMs
         // Binary-search for nearest timestamp
         var lo = 0, hi = timestamps.count - 1
         while lo < hi {
@@ -144,12 +145,13 @@ public struct MetricCardWidget: View {
     let ts: ContiguousArray<Double> = ContiguousArray((0..<500).map { Double($0) * 100 })
     let vals: ContiguousArray<Float> = ContiguousArray((0..<500).map { Float.init(sin(Double($0) * 0.05)) * 0.5 + 3.8 })
 
-    return MetricCardWidget(
+    let pc = PlayheadController()
+    MetricCardWidget(
         label: "Velocity",
         unit: "m/s",
         values: vals,
         timestamps: ts,
-        playheadTimeMs: 25_000
+        playheadController: pc
     )
     .frame(width: 200, height: 120)
     .background(Color(nsColor: .windowBackgroundColor))

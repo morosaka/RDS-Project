@@ -93,7 +93,7 @@ public struct VideoTrimView: View {
                             state = value.translation.width
                         }
                         .onEnded { value in
-                            if var range = trimRange {
+                            if let range = trimRange {
                                 let newIn = range.lowerBound
                                     + (value.translation.width / 400) * playheadController.duration
                                 if newIn >= 0 && newIn < range.upperBound {
@@ -124,7 +124,7 @@ public struct VideoTrimView: View {
                             state = value.translation.width
                         }
                         .onEnded { value in
-                            if var range = trimRange {
+                            if let range = trimRange {
                                 let newOut = range.upperBound
                                     + (value.translation.width / 400) * playheadController.duration
                                 if newOut > range.lowerBound

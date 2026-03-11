@@ -26,26 +26,27 @@ import SwiftUI
 public struct StrokeTableWidget: View {
 
     let strokes: [PerStrokeStat]
-    let playheadTimeMs: Double
+    @ObservedObject var playheadController: PlayheadController
     /// Parallel array: stroke start times in ms (from StrokeEvent), used for row highlighting.
     let strokeStartTimesMs: [Double]
 
     public init(
         strokes: [PerStrokeStat],
-        playheadTimeMs: Double,
+        playheadController: PlayheadController,
         strokeStartTimesMs: [Double]
     ) {
         self.strokes = strokes
-        self.playheadTimeMs = playheadTimeMs
+        self.playheadController = playheadController
         self.strokeStartTimesMs = strokeStartTimesMs
     }
 
     private var activeIndex: Int? {
         guard !strokeStartTimesMs.isEmpty else { return nil }
+        let playheadMs = playheadController.currentTimeMs
         // Find last stroke that started before or at playhead
         var result: Int? = nil
         for (i, t) in strokeStartTimesMs.enumerated() {
-            if t <= playheadTimeMs { result = i }
+            if t <= playheadMs { result = i }
             else { break }
         }
         return result
@@ -178,9 +179,10 @@ public struct StrokeTableWidget: View {
     }
     let startTimes = (0..<20).map { Double($0) * 2500.0 }
 
-    return StrokeTableWidget(
+    let pc = PlayheadController()
+    StrokeTableWidget(
         strokes: strokes,
-        playheadTimeMs: 12_500,
+        playheadController: pc,
         strokeStartTimesMs: startTimes
     )
     .frame(width: 300, height: 360)

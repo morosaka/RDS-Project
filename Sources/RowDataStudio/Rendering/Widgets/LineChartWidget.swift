@@ -8,6 +8,7 @@
  * is drawn as a lightweight overlay that doesn't trigger data reprocessing.
  *
  * --- Revision History ---
+ * v1.2.0 - 2026-03-11 - Widget takes PlayheadController; overlay observes it internally.
  * v1.1.0 - 2026-03-11 - Cache pipeline output; separate playhead from data render path.
  * v1.0.0 - 2026-03-07 - Initial implementation (Phase 4: Rendering + MVP).
  */
@@ -29,8 +30,8 @@ public struct LineChartWidget: View {
     let timestamps: ContiguousArray<Double>
     /// Full value array (parallel to timestamps; NaN = missing data).
     let values: ContiguousArray<Float>
-    /// Current playhead position in milliseconds.
-    let playheadTimeMs: Double
+    /// Shared playhead controller — observed only by the PlayheadOverlay, not by the data layer.
+    @ObservedObject var playheadController: PlayheadController
     /// Visible time range in milliseconds.
     let viewportMs: ClosedRange<Double>
     /// Maximum display points after LTTB. Default: 2000.
@@ -39,13 +40,13 @@ public struct LineChartWidget: View {
     public init(
         timestamps: ContiguousArray<Double>,
         values: ContiguousArray<Float>,
-        playheadTimeMs: Double,
+        playheadController: PlayheadController,
         viewportMs: ClosedRange<Double>,
         targetPointCount: Int = 2000
     ) {
         self.timestamps = timestamps
         self.values = values
-        self.playheadTimeMs = playheadTimeMs
+        self.playheadController = playheadController
         self.viewportMs = viewportMs
         self.targetPointCount = targetPointCount
     }
@@ -60,7 +61,7 @@ public struct LineChartWidget: View {
         )
         .overlay {
             // Playhead layer: lightweight, redrawn at 60fps
-            PlayheadOverlay(playheadTimeMs: playheadTimeMs, viewportMs: viewportMs)
+            PlayheadOverlay(playheadTimeMs: playheadController.currentTimeMs, viewportMs: viewportMs)
         }
         .drawingGroup()
         .background(Color(nsColor: .windowBackgroundColor))

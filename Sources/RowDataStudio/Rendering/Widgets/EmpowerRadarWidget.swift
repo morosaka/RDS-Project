@@ -45,18 +45,43 @@ public struct EmpowerRadarWidget: View {
         }
     }
 
-    let currentStroke: PerStrokeStat?
-    let averageMetrics: [String: Double]
+    let fusionResult: FusionResult?
+    @ObservedObject var playheadController: PlayheadController
     let axes: [Axis]
 
+    /// Convenience init for canvas factory — computes active stroke from fusionResult + playhead.
     public init(
         currentStroke: PerStrokeStat?,
         averageMetrics: [String: Double],
+        fusionResult: FusionResult?,
+        playheadController: PlayheadController,
         axes: [Axis] = Self.defaultAxes
     ) {
-        self.currentStroke = currentStroke
-        self.averageMetrics = averageMetrics
+        self.fusionResult = fusionResult
+        self.playheadController = playheadController
         self.axes = axes
+    }
+
+    private var currentStroke: PerStrokeStat? {
+        guard let r = fusionResult else { return nil }
+        let playheadMs = playheadController.currentTimeMs
+        return r.perStrokeStats.last(where: { stat in
+            guard let stroke = r.strokes.first(where: { $0.index == stat.strokeIndex }) else { return false }
+            return stroke.startTime * 1000 <= playheadMs
+        })
+    }
+
+    private var averageMetrics: [String: Double] {
+        guard let r = fusionResult else { return [:] }
+        var sums = [String: Double](); var counts = [String: Int]()
+        for stat in r.perStrokeStats {
+            for (k, v) in stat.metrics {
+                sums[k, default: 0] += v; counts[k, default: 0] += 1
+            }
+        }
+        return sums.reduce(into: [String: Double]()) { acc, pair in
+            acc[pair.key] = pair.value / Double(counts[pair.key] ?? 1)
+        }
     }
 
     /// Default NK Empower axes with rowing-typical reference maxima.
@@ -250,7 +275,8 @@ public struct EmpowerRadarWidget: View {
         "mech_ext_ps_slip":         8.0
     ]
 
-    return EmpowerRadarWidget(currentStroke: stroke, averageMetrics: avg)
+    let pc = PlayheadController()
+    EmpowerRadarWidget(currentStroke: stroke, averageMetrics: avg, fusionResult: nil, playheadController: pc)
         .frame(width: 320, height: 320)
         .background(Color(nsColor: .windowBackgroundColor))
 }

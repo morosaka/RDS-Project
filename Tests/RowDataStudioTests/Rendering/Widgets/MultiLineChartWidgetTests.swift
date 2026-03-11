@@ -1,7 +1,8 @@
-// Tests/RowDataStudioTests/Rendering/Widgets/MultiLineChartWidgetTests.swift v1.0.0
+// Tests/RowDataStudioTests/Rendering/Widgets/MultiLineChartWidgetTests.swift v1.1.0
 /**
  * Tests for MultiLineChartWidget data model (MetricSeries) and palette logic.
  * --- Revision History ---
+ * v1.1.0 - 2026-03-11 - Update to PlayheadController API; add @MainActor for View init.
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 6: Canvas & Widgets).
  */
 
@@ -38,6 +39,7 @@ struct MetricSeriesTests {
 struct MultiLineChartWidgetPaletteTests {
 
     @Test("Default palette has 6 colors")
+    @MainActor
     func paletteCount() {
         #expect(MultiLineChartWidget.palette.count == 6)
     }
@@ -60,6 +62,7 @@ struct MultiLineChartWidgetPaletteTests {
     }
 
     @Test("Palette wraps around for more than 6 series")
+    @MainActor
     func paletteWraparound() {
         // The palette[idx % palette.count] pattern: index 6 wraps to index 0
         let palette = MultiLineChartWidget.palette
@@ -77,6 +80,7 @@ struct MultiLineChartWidgetPaletteTests {
 struct MultiLineChartWidgetInitTests {
 
     @Test("Widget stores series count correctly")
+    @MainActor
     func storesSeries() {
         let ts: ContiguousArray<Double> = [0, 100, 200]
         let vals: ContiguousArray<Float> = [1.0, 1.5, 2.0]
@@ -84,39 +88,46 @@ struct MultiLineChartWidgetInitTests {
             MetricSeries(label: "A", timestamps: ts, values: vals, color: .blue),
             MetricSeries(label: "B", timestamps: ts, values: vals, color: .red)
         ]
+        let pc = PlayheadController()
         let widget = MultiLineChartWidget(
             series: series,
-            playheadTimeMs: 100,
+            playheadController: pc,
             viewportMs: 0...200
         )
         #expect(widget.series.count == 2)
     }
 
     @Test("Empty series is valid")
+    @MainActor
     func emptySeries() {
+        let pc = PlayheadController()
         let widget = MultiLineChartWidget(
             series: [],
-            playheadTimeMs: 0,
+            playheadController: pc,
             viewportMs: 0...1000
         )
         #expect(widget.series.isEmpty)
     }
 
     @Test("Default targetPointCount is 1500")
+    @MainActor
     func defaultTargetPoints() {
+        let pc = PlayheadController()
         let widget = MultiLineChartWidget(
             series: [],
-            playheadTimeMs: 0,
+            playheadController: pc,
             viewportMs: 0...1000
         )
         #expect(widget.targetPointCount == 1500)
     }
 
     @Test("Custom targetPointCount is stored")
+    @MainActor
     func customTargetPoints() {
+        let pc = PlayheadController()
         let widget = MultiLineChartWidget(
             series: [],
-            playheadTimeMs: 0,
+            playheadController: pc,
             viewportMs: 0...1000,
             targetPointCount: 500
         )

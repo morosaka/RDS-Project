@@ -9,6 +9,8 @@
  * - Inspector for selected widget configuration
  *
  * --- Revision History ---
+ * v1.5.0 - 2026-03-11 - Decouple playheadController: `let` instead of `@ObservedObject`.
+ *                        Widgets observe playhead internally; canvas no longer redraws at 60fps.
  * v1.4.0 - 2026-03-08 - Pinch/zoom and spacebar via NSEvent monitor (bypasses SwiftUI responder chain).
  * v1.3.0 - 2026-03-08 - Fix zoom: SimultaneousGesture attempt (insufficient for SPM executables).
  * v1.2.0 - 2026-03-08 - Wire all widget types to real implementations.
@@ -22,7 +24,10 @@ import SwiftUI
 /// Main infinite canvas with pan, zoom, and draggable widgets.
 public struct RowingDeskCanvas: View {
     @ObservedObject var dataContext: DataContext
-    @ObservedObject var playheadController: PlayheadController
+    /// Plain `let` — NOT @ObservedObject. The canvas must NOT subscribe to
+    /// playheadController's 60fps currentTimeMs updates. Each widget that
+    /// needs the playhead observes it internally via its own @ObservedObject.
+    let playheadController: PlayheadController
 
     @State private var selectedWidgetIDs: Set<UUID> = []
     @State private var showWidgetPalette = false
@@ -251,7 +256,9 @@ public struct RowingDeskCanvas: View {
         let ts = dataContext.timestamps ?? []
         let dur = dataContext.sessionDurationMs
         let viewport: ClosedRange<Double> = dur > 0 ? (0.0...dur) : (0.0...1.0)
-        let playheadMs = playheadController.currentTimeMs
+        // NOTE: We do NOT read playheadController.currentTimeMs here.
+        // Each widget observes playheadController internally, so the canvas
+        // body is NOT invalidated at 60fps.
 
         switch widget.type {
         case .lineChart:
@@ -259,14 +266,14 @@ public struct RowingDeskCanvas: View {
             let vals = dataContext.values(for: metricID) ?? []
             return AnyView(LineChartWidget(
                 timestamps: ts, values: vals,
-                playheadTimeMs: playheadMs, viewportMs: viewport
+                playheadController: playheadController, viewportMs: viewport
             ))
 
         case .multiLineChart:
             let ids = widget.metricIDs.isEmpty ? [dataContext.selectedMetric] : widget.metricIDs
             let series = MultiLineChartWidget.series(from: dataContext, metricIDs: ids)
             return AnyView(MultiLineChartWidget(
-                series: series, playheadTimeMs: playheadMs, viewportMs: viewport
+                series: series, playheadController: playheadController, viewportMs: viewport
             ))
 
         case .metricCard:
@@ -276,7 +283,7 @@ public struct RowingDeskCanvas: View {
             return AnyView(MetricCardWidget(
                 label: label, unit: "",
                 values: values, timestamps: ts,
-                playheadTimeMs: playheadMs
+                playheadController: playheadController
             ))
 
         case .strokeTable:
@@ -284,7 +291,7 @@ public struct RowingDeskCanvas: View {
             let startTimes = dataContext.fusionResult?.strokes.map { $0.startTime * 1000 } ?? []
             return AnyView(StrokeTableWidget(
                 strokes: strokes,
-                playheadTimeMs: playheadMs,
+                playheadController: playheadController,
                 strokeStartTimesMs: startTimes
             ))
 
@@ -299,29 +306,17 @@ public struct RowingDeskCanvas: View {
             } ?? []
             return AnyView(MapWidget(
                 latitudes: lats, longitudes: lons,
-                timestamps: ts, playheadTimeMs: playheadMs
+                timestamps: ts, playheadController: playheadController
             ))
 
         case .empowerRadar:
             let result = dataContext.fusionResult
-            let activeStroke = result.flatMap { r in
-                r.perStrokeStats.last(where: { stat in
-                    guard let idx = r.strokes.first(where: { $0.index == stat.strokeIndex }) else { return false }
-                    return idx.startTime * 1000 <= playheadMs
-                })
-            }
-            let avgMetrics: [String: Double] = result.map { r in
-                var sums = [String: Double](); var counts = [String: Int]()
-                for stat in r.perStrokeStats {
-                    for (k, v) in stat.metrics {
-                        sums[k, default: 0] += v; counts[k, default: 0] += 1
-                    }
-                }
-                return sums.reduce(into: [String: Double]()) { acc, pair in
-                    acc[pair.key] = pair.value / Double(counts[pair.key] ?? 1)
-                }
-            } ?? [:]
-            return AnyView(EmpowerRadarWidget(currentStroke: activeStroke, averageMetrics: avgMetrics))
+            return AnyView(EmpowerRadarWidget(
+                currentStroke: nil,
+                averageMetrics: [:],
+                fusionResult: result,
+                playheadController: playheadController
+            ))
 
         case .video:
             // Extract video source ID from widget configuration

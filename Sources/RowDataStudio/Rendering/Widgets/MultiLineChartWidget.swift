@@ -10,6 +10,7 @@
  * data layer. Playhead drawn as separate lightweight overlay.
  *
  * --- Revision History ---
+ * v1.2.0 - 2026-03-11 - Widget takes PlayheadController; overlay observes it internally.
  * v1.1.0 - 2026-03-11 - Cache pipeline output; separate playhead from data render path.
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 6: Canvas & Widgets).
  */
@@ -49,18 +50,18 @@ public struct MetricSeries: Identifiable, Sendable {
 public struct MultiLineChartWidget: View {
 
     let series: [MetricSeries]
-    let playheadTimeMs: Double
+    @ObservedObject var playheadController: PlayheadController
     let viewportMs: ClosedRange<Double>
     var targetPointCount: Int = 1500
 
     public init(
         series: [MetricSeries],
-        playheadTimeMs: Double,
+        playheadController: PlayheadController,
         viewportMs: ClosedRange<Double>,
         targetPointCount: Int = 1500
     ) {
         self.series = series
-        self.playheadTimeMs = playheadTimeMs
+        self.playheadController = playheadController
         self.viewportMs = viewportMs
         self.targetPointCount = targetPointCount
     }
@@ -74,7 +75,7 @@ public struct MultiLineChartWidget: View {
         )
         .overlay {
             // Playhead: lightweight 60fps redraw
-            MultiLinePlayheadOverlay(playheadTimeMs: playheadTimeMs, viewportMs: viewportMs)
+            MultiLinePlayheadOverlay(playheadTimeMs: playheadController.currentTimeMs, viewportMs: viewportMs)
         }
         .drawingGroup()
         .background(Color(nsColor: .windowBackgroundColor))
@@ -290,12 +291,13 @@ public extension MultiLineChartWidget {
     let vel: ContiguousArray<Float> = ContiguousArray((0..<n).map { Float.init(sin(Double($0) * 0.05)) * 2 + 4 })
     let hr:  ContiguousArray<Float> = ContiguousArray((0..<n).map { Float.init(cos(Double($0) * 0.03)) * 5 + 145 })
 
-    return MultiLineChartWidget(
+    let pc = PlayheadController()
+    MultiLineChartWidget(
         series: [
             MetricSeries(label: "Velocity", timestamps: ts, values: vel, color: .blue),
             MetricSeries(label: "HR",       timestamps: ts, values: hr,  color: .red)
         ],
-        playheadTimeMs: 15_000,
+        playheadController: pc,
         viewportMs: 0...50_000
     )
     .frame(width: 480, height: 280)

@@ -51,7 +51,7 @@ public struct ContentView: View {
                     LineChartWidget(
                         timestamps: timestamps,
                         values: values,
-                        playheadTimeMs: playhead.currentTimeMs,
+                        playheadController: playhead,
                         viewportMs: 0...max(dataContext.sessionDurationMs, 1)
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
