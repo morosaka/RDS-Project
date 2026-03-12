@@ -4,7 +4,15 @@
       "Bash(swift test:*)",
       "mcp__open-brain__capture_thought",
       "Bash(swift build:*)",
-      "Bash(xcode-select -p)"
+      "Bash(xcode-select -p)",
+      "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 git -C /Volumes/WDSN770/Projects/Antigravity/RowData-Studio log --oneline -10)",
+      "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 git -C /Volumes/WDSN770/Projects/Antigravity/RDS-Xcode log --oneline -10)",
+      "Bash(rsync -avnc /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/ /Volumes/WDSN770/Projects/Antigravity/RDS-Xcode/RowData-Studio/Sources/RowDataStudio/)",
+      "Bash(grep -v \"/$\")",
+      "Bash(rsync -av /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/ /Volumes/WDSN770/Projects/Antigravity/RDS-Xcode/RowData-Studio/Sources/RowDataStudio/)",
+      "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 grep -r \"public enum StreamType\\\\|struct StreamType\\\\|class StreamType\" /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/)",
+      "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 grep -n \"isPrimaryTier\\\\|var zIndex\\\\|\\\\.zIndex\" /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/Core/Models/CanvasState.swift)",
+      "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 grep -n \"isPrimaryTier\" /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/Core/Models/CanvasState.swift)"
     ]
   }
 }
