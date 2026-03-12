@@ -68,13 +68,12 @@ public struct RowingDeskCanvas: View {
             GeometryReader { geo in
                 ZStack {
                     RDS.Colors.canvasBackground.ignoresSafeArea()
-                    canvasGrid(size: geo.size)
 
-                    // CanvasWidgetLayer does NOT receive canvasZoom or canvasPan.
-                    // Transforms applied from outside via .scaleEffect/.offset.
-                    // .equatable() uses the custom == that ignores closures — body is
-                    // NEVER called during animation frames because selectedWidgetIDs and
-                    // isFocusModeActive don't change while canvasZoom interpolates.
+                    // Grid: only re-evals when canvasPan changes (not during zoom animation)
+                    CanvasGrid(pan: canvasPan, liveDelta: livePanDelta, size: geo.size)
+                        .equatable()
+
+                    // Widget layer: only re-evals when widgets/selection change (not during animation)
                     CanvasWidgetLayer(
                         dataContext: dataContext,
                         playheadController: playheadController,
@@ -88,7 +87,7 @@ public struct RowingDeskCanvas: View {
                         onTierToggle:       { id in toggleTier(id: id) },
                         onFocusSelection:   { toggleFocusMode() }
                     )
-                    .equatable()  // ← Key: custom == ignores closures, skips body during animation
+                    .equatable()
                 }
                 .scaleEffect(canvasZoom, anchor: .topLeading)
                 .offset(
@@ -111,13 +110,15 @@ public struct RowingDeskCanvas: View {
                 .onTapGesture { selectedWidgetIDs = [] }
             }
 
-            // ── Right sidebar ────────────────────────────────────────────────
-            VStack(spacing: 0) {
-                sidebarHeader
-                Divider()
-                if showWidgetPalette { widgetPalette; Divider() }
-                inspectorPanel
-            }
+            // ── Sidebar: only re-evals when selection/palette visibility changes ──
+            CanvasSidebar(
+                dataContext: dataContext,
+                selectedWidgetIDs: selectedWidgetIDs,
+                showWidgetPalette: showWidgetPalette,
+                onTogglePalette: { showWidgetPalette.toggle() },
+                onAddWidget:     { type in addWidget(type: type) }
+            )
+            .equatable()
             .frame(width: 260)
             .background(Color.gray.opacity(0.05))
         }
@@ -131,103 +132,9 @@ public struct RowingDeskCanvas: View {
         .onDisappear { teardownEventMonitor() }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // MARK: - Sidebar
-    // ─────────────────────────────────────────────────────────────────────────
 
-    private var sidebarHeader: some View {
-        HStack {
-            Text("Widgets").font(.headline)
-            Spacer()
-            Button {
-                showWidgetPalette.toggle()
-            } label: {
-                Image(systemName: showWidgetPalette ? "minus.circle" : "plus.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.accentColor)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(12)
-    }
-
-    private var widgetPalette: some View {
-        ScrollView {
-            VStack(spacing: 6) {
-                ForEach(WidgetType.allCases, id: \.self) { type in
-                    Button { addWidget(type: type) } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: type.icon)
-                                .frame(width: 20)
-                                .foregroundColor(.accentColor)
-                            Text(type.displayName).font(.callout)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.gray.opacity(0.08))
-                        .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(12)
-        }
-        .frame(maxHeight: 280)
-    }
-
-    @ViewBuilder
-    private var inspectorPanel: some View {
-        if let id = selectedWidgetIDs.first, selectedWidgetIDs.count == 1,
-           let widget = widgets.first(where: { $0.id == id }) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Inspector").font(.headline).padding(.horizontal)
-                    Divider()
-                    inspectorRow("Type",     widget.type?.displayName ?? widget.widgetType)
-                    inspectorRow("Position", String(format: "(%.0f, %.0f)", widget.position.x, widget.position.y))
-                    inspectorRow("Size",     String(format: "%.0f × %.0f", widget.size.width, widget.size.height))
-                    if !widget.metricIDs.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Metrics").font(.caption).foregroundColor(.secondary).padding(.horizontal)
-                            ForEach(widget.metricIDs, id: \.self) { metric in
-                                Text(metric)
-                                    .font(.caption).monospaced()
-                                    .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(Color.accentColor.opacity(0.1))
-                                    .cornerRadius(4).padding(.horizontal)
-                            }
-                        }
-                    }
-                    Spacer()
-                }
-                .padding(.vertical)
-            }
-        } else if selectedWidgetIDs.count > 1 {
-            VStack(spacing: 10) {
-                Spacer()
-                Image(systemName: "square.dashed.inset.filled").font(.system(size: 28)).foregroundColor(.gray)
-                Text("\(selectedWidgetIDs.count) widgets selected").font(.caption).foregroundColor(.secondary)
-                Spacer()
-            }
-        } else {
-            VStack(spacing: 10) {
-                Spacer()
-                Image(systemName: "cursorarrow.click").font(.system(size: 28)).foregroundColor(.gray)
-                Text("Select a widget").font(.caption).foregroundColor(.secondary)
-                Spacer()
-            }
-        }
-    }
-
-    private func inspectorRow(_ label: String, _ value: String) -> some View {
-        HStack {
-            Text(label).font(.caption).foregroundColor(.secondary)
-            Spacer()
-            Text(value).font(.caption).monospaced()
-        }
-        .padding(.horizontal)
-    }
+    // Sidebar and grid are now CanvasSidebar / CanvasGrid structs (Equatable, below).
+    // They are NOT methods on RowingDeskCanvas to prevent re-evaluation during animation.
 
     // ─────────────────────────────────────────────────────────────────────────
     // MARK: - Canvas mutations (widget layout only — NOT zoom/pan)
@@ -604,9 +511,167 @@ private struct CanvasWidgetLayer: View, Equatable {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - CanvasGrid
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Background dot grid. Only re-evaluates when pan changes (not during zoom animation).
+private struct CanvasGrid: View, Equatable {
+    let pan: CGPoint
+    let liveDelta: CGSize
+    let size: CGSize
+
+    nonisolated static func == (lhs: CanvasGrid, rhs: CanvasGrid) -> Bool {
+        lhs.pan == rhs.pan && lhs.liveDelta == rhs.liveDelta && lhs.size == rhs.size
+    }
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            let spacing: CGFloat = 50
+            let offsetX = pan.x.truncatingRemainder(dividingBy: spacing)
+            let offsetY = pan.y.truncatingRemainder(dividingBy: spacing)
+            var x = offsetX
+            while x < canvasSize.width {
+                var p = Path()
+                p.move(to: CGPoint(x: x, y: 0))
+                p.addLine(to: CGPoint(x: x, y: canvasSize.height))
+                context.stroke(p, with: .color(Color.gray.opacity(0.12)))
+                x += spacing
+            }
+            var y = offsetY
+            while y < canvasSize.height {
+                var p = Path()
+                p.move(to: CGPoint(x: 0, y: y))
+                p.addLine(to: CGPoint(x: canvasSize.width, y: y))
+                context.stroke(p, with: .color(Color.gray.opacity(0.12)))
+                y += spacing
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - CanvasSidebar
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Right-side widget panel. Only re-evaluates when the selected widget or
+/// palette visibility changes — never during zoom/pan animation.
+private struct CanvasSidebar: View, Equatable {
+    @ObservedObject var dataContext: DataContext
+    let selectedWidgetIDs: Set<UUID>
+    let showWidgetPalette: Bool
+    let onTogglePalette: () -> Void
+    let onAddWidget: (WidgetType) -> Void
+
+    nonisolated static func == (lhs: CanvasSidebar, rhs: CanvasSidebar) -> Bool {
+        lhs.selectedWidgetIDs == rhs.selectedWidgetIDs &&
+        lhs.showWidgetPalette == rhs.showWidgetPalette
+        // dataContext: @ObservedObject — handled by SwiftUI separately
+    }
+
+    private var widgets: [WidgetState] {
+        dataContext.sessionDocument?.canvas.widgets ?? []
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Widgets").font(.headline)
+                Spacer()
+                Button(action: onTogglePalette) {
+                    Image(systemName: showWidgetPalette ? "minus.circle" : "plus.circle.fill")
+                        .font(.title2).foregroundColor(.accentColor)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(12)
+
+            Divider()
+
+            // Palette (conditionally shown)
+            if showWidgetPalette {
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(WidgetType.allCases, id: \.self) { type in
+                            Button { onAddWidget(type) } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: type.icon).frame(width: 20).foregroundColor(.accentColor)
+                                    Text(type.displayName).font(.callout)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 12).padding(.vertical, 8)
+                                .background(Color.gray.opacity(0.08)).cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(12)
+                }
+                .frame(maxHeight: 280)
+                Divider()
+            }
+
+            // Inspector
+            inspectorPanel
+        }
+    }
+
+    @ViewBuilder
+    private var inspectorPanel: some View {
+        if let id = selectedWidgetIDs.first, selectedWidgetIDs.count == 1,
+           let widget = widgets.first(where: { $0.id == id }) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Inspector").font(.headline).padding(.horizontal)
+                    Divider()
+                    row("Type",     widget.type?.displayName ?? widget.widgetType)
+                    row("Position", String(format: "(%.0f, %.0f)", widget.position.x, widget.position.y))
+                    row("Size",     String(format: "%.0f × %.0f", widget.size.width, widget.size.height))
+                    if !widget.metricIDs.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Metrics").font(.caption).foregroundColor(.secondary).padding(.horizontal)
+                            ForEach(widget.metricIDs, id: \.self) { m in
+                                Text(m).font(.caption).monospaced()
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(Color.accentColor.opacity(0.1)).cornerRadius(4)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(.vertical)
+            }
+        } else if selectedWidgetIDs.count > 1 {
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "square.dashed.inset.filled").font(.system(size: 28)).foregroundColor(.gray)
+                Text("\(selectedWidgetIDs.count) widgets selected").font(.caption).foregroundColor(.secondary)
+                Spacer()
+            }
+        } else {
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: "cursorarrow.click").font(.system(size: 28)).foregroundColor(.gray)
+                Text("Select a widget").font(.caption).foregroundColor(.secondary)
+                Spacer()
+            }
+        }
+    }
+
+    private func row(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).font(.caption).foregroundColor(.secondary)
+            Spacer()
+            Text(value).font(.caption).monospaced()
+        }
+        .padding(.horizontal)
+    }
+}
+
 #Preview {
     let dataContext = DataContext()
     let playheadController = PlayheadController()
     return RowingDeskCanvas(dataContext: dataContext, playheadController: playheadController)
 }
-
