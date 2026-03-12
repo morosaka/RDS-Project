@@ -1,4 +1,4 @@
-// Rendering/Widgets/LineChartWidget.swift v1.3.0
+// Rendering/Widgets/LineChartWidget.swift v1.4.0
 /**
  * Single-series line chart widget.
  *
@@ -10,6 +10,7 @@
  *   have @ObservedObject, so its body is not re-evaluated at 60fps.
  *
  * --- Revision History ---
+ * v1.4.0 - 2026-03-12 - Dynamic targetCount = canvas pixel width (removes hardcoded 2000).
  * v1.3.0 - 2026-03-12 - Pipeline moved off main thread; @State result cache; removed GeometryReader.
  * v1.2.0 - 2026-03-11 - PlayheadOverlay owns @ObservedObject, parent is plain `let`.
  * v1.1.0 - 2026-03-11 - Separated data layer (Equatable) from overlay.
@@ -19,6 +20,9 @@
 import SwiftUI
 
 /// Single-channel sensor line chart widget.
+///
+/// `targetPointCount` is no longer a parameter — it is computed dynamically
+/// as the widget's actual pixel width, giving exactly 1 LTTB point per pixel.
 public struct LineChartWidget: View {
 
     let timestamps: ContiguousArray<Double>
@@ -26,28 +30,24 @@ public struct LineChartWidget: View {
     /// Plain `let` — NOT @ObservedObject. Only child `PlayheadOverlay` subscribes.
     let playheadController: PlayheadController
     let viewportMs: ClosedRange<Double>
-    var targetPointCount: Int = 2000
 
     public init(
         timestamps: ContiguousArray<Double>,
         values: ContiguousArray<Float>,
         playheadController: PlayheadController,
-        viewportMs: ClosedRange<Double>,
-        targetPointCount: Int = 2000
+        viewportMs: ClosedRange<Double>
     ) {
         self.timestamps = timestamps
         self.values = values
         self.playheadController = playheadController
         self.viewportMs = viewportMs
-        self.targetPointCount = targetPointCount
     }
 
     public var body: some View {
         LineChartDataLayer(
             timestamps: timestamps,
             values: values,
-            viewportMs: viewportMs,
-            targetPointCount: targetPointCount
+            viewportMs: viewportMs
         )
         .overlay {
             PlayheadOverlay(playheadController: playheadController, viewportMs: viewportMs)
@@ -65,7 +65,10 @@ private struct LineChartDataLayer: View, Equatable {
     let timestamps: ContiguousArray<Double>
     let values: ContiguousArray<Float>
     let viewportMs: ClosedRange<Double>
-    let targetPointCount: Int
+
+    // Dynamic target count = widget pixel width (1 point per pixel, min 200).
+    @State private var chartWidth: CGFloat = 480
+    private var dynamicTargetCount: Int { max(200, Int(chartWidth)) }
 
     // Cached pipeline results — set once off-thread, never recomputed per-frame.
     @State private var displayTs: ContiguousArray<Double> = []
@@ -76,14 +79,16 @@ private struct LineChartDataLayer: View, Equatable {
         lhs.timestamps.count == rhs.timestamps.count &&
         lhs.values.count == rhs.values.count &&
         lhs.viewportMs == rhs.viewportMs &&
-        lhs.targetPointCount == rhs.targetPointCount &&
         lhs.timestamps.first == rhs.timestamps.first &&
-        lhs.timestamps.last == rhs.timestamps.last
+        lhs.timestamps.last == rhs.timestamps.last &&
+        lhs.values.first == rhs.values.first &&
+        lhs.values.last == rhs.values.last
     }
 
-    /// Cache invalidation key — changes when data or viewport change.
+    /// Cache invalidation key — changes when data, viewport, canvas width, or metric changes.
+    /// values.first/last distinguish between different metrics sharing the same array length.
     private var pipelineKey: String {
-        "\(timestamps.count):\(values.count):\(viewportMs.lowerBound):\(viewportMs.upperBound):\(targetPointCount)"
+        "\(timestamps.count):\(values.count):\(viewportMs.lowerBound):\(viewportMs.upperBound):\(dynamicTargetCount):\(values.first ?? 0):\(values.last ?? 0)"
     }
 
     var body: some View {
@@ -119,11 +124,14 @@ private struct LineChartDataLayer: View, Equatable {
             axisLabels(yMin: yMin, yMax: yMax)
         }
         // Pipeline runs off-main-thread; re-triggered only when pipelineKey changes.
+        // targetCount = chartWidth (px) — set by the background GeometryReader below.
         .task(id: pipelineKey) {
-            let ts = timestamps, vals = values, vp = viewportMs, tc = targetPointCount
+            let ts = timestamps, vals = values, vp = viewportMs, tc = dynamicTargetCount
             let result = await Task.detached(priority: .userInitiated) { () -> (ContiguousArray<Double>, ContiguousArray<Float>, Float, Float) in
+                // Calculate real data density for AdaptiveSmooth stage.
+                let ppp = Double(ts.count) / Double(tc)
                 let (dts, dvals) = TransformPipeline.mvp(
-                    viewportMs: vp, targetCount: tc, pointsPerPixel: 1.0
+                    viewportMs: vp, targetCount: tc, pointsPerPixel: ppp
                 ).apply(timestamps: ts, values: vals)
                 let (mn, mx) = computeValueRange(dvals)
                 return (dts, dvals, mn, mx)
@@ -133,6 +141,14 @@ private struct LineChartDataLayer: View, Equatable {
             displayVals = result.1
             yRange      = (result.2, result.3)
         }
+        // Measure actual rendered width so dynamicTargetCount stays in sync.
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { chartWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { w in chartWidth = w }
+            }
+        )
     }
 
     @ViewBuilder

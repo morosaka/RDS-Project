@@ -1,4 +1,4 @@
-// Rendering/Widgets/MultiLineChartWidget.swift v1.3.0
+// Rendering/Widgets/MultiLineChartWidget.swift v1.4.0
 /**
  * Multi-series line chart widget for metric overlay comparison.
  *
@@ -8,6 +8,7 @@
  * - MultiLinePlayheadOverlay has its own @ObservedObject; parent widget is plain `let`.
  *
  * --- Revision History ---
+ * v1.4.0 - 2026-03-12 - Dynamic targetCount = canvas pixel width (removes hardcoded 1500).
  * v1.3.0 - 2026-03-12 - Pipeline moved off main thread; @State result cache.
  * v1.2.0 - 2026-03-11 - Widget takes PlayheadController as let; overlay observes internally.
  * v1.1.0 - 2026-03-11 - Cache pipeline output; separate playhead from data render path.
@@ -40,31 +41,30 @@ public struct MetricSeries: Identifiable, Sendable {
 
 /// Overlay line chart displaying multiple sensor metrics simultaneously.
 /// The data layer recomputes off-thread; the playhead redraws at 60fps via its own child.
+///
+/// `targetPointCount` is no longer a parameter — it is computed dynamically as the widget's
+/// actual pixel width, giving exactly 1 LTTB point per pixel.
 public struct MultiLineChartWidget: View {
 
     let series: [MetricSeries]
     /// Plain `let` — NOT @ObservedObject. Only child `MultiLinePlayheadOverlay` subscribes.
     let playheadController: PlayheadController
     let viewportMs: ClosedRange<Double>
-    var targetPointCount: Int = 1500
 
     public init(
         series: [MetricSeries],
         playheadController: PlayheadController,
-        viewportMs: ClosedRange<Double>,
-        targetPointCount: Int = 1500
+        viewportMs: ClosedRange<Double>
     ) {
         self.series = series
         self.playheadController = playheadController
         self.viewportMs = viewportMs
-        self.targetPointCount = targetPointCount
     }
 
     public var body: some View {
         MultiLineDataLayer(
             series: series,
-            viewportMs: viewportMs,
-            targetPointCount: targetPointCount
+            viewportMs: viewportMs
         )
         .overlay {
             // @ObservedObject lives here exclusively — widget parent NOT reactive at 60fps.
@@ -81,7 +81,10 @@ private struct MultiLineDataLayer: View, Equatable {
 
     let series: [MetricSeries]
     let viewportMs: ClosedRange<Double>
-    let targetPointCount: Int
+
+    // Dynamic target count = widget pixel width (1 point per pixel, min 200).
+    @State private var chartWidth: CGFloat = 480
+    private var dynamicTargetCount: Int { max(200, Int(chartWidth)) }
 
     // Cached display data — only recomputed when inputs change.
     @State private var displaySeries: [(label: String, color: Color, ts: ContiguousArray<Double>, vals: ContiguousArray<Float>)] = []
@@ -89,19 +92,21 @@ private struct MultiLineDataLayer: View, Equatable {
 
     nonisolated static func == (lhs: MultiLineDataLayer, rhs: MultiLineDataLayer) -> Bool {
         guard lhs.series.count == rhs.series.count,
-              lhs.viewportMs == rhs.viewportMs,
-              lhs.targetPointCount == rhs.targetPointCount else { return false }
+              lhs.viewportMs == rhs.viewportMs else { return false }
         for (l, r) in zip(lhs.series, rhs.series) {
             if l.timestamps.count != r.timestamps.count ||
                l.values.count != r.values.count ||
-               l.label != r.label { return false }
+               l.label != r.label ||
+               l.values.first != r.values.first ||
+               l.values.last != r.values.last { return false }
         }
         return true
     }
 
     private var pipelineKey: String {
-        let counts = series.map { "\($0.timestamps.count):\($0.values.count)" }.joined(separator: ",")
-        return "\(counts):\(viewportMs.lowerBound):\(viewportMs.upperBound):\(targetPointCount)"
+        // values.first/last distinguish metrics that share the same array length.
+        let counts = series.map { "\($0.timestamps.count):\($0.values.count):\($0.values.first ?? 0):\($0.values.last ?? 0)" }.joined(separator: ",")
+        return "\(counts):\(viewportMs.lowerBound):\(viewportMs.upperBound):\(dynamicTargetCount)"
     }
 
     var body: some View {
@@ -137,12 +142,14 @@ private struct MultiLineDataLayer: View, Equatable {
         }
         .task(id: pipelineKey) {
             // Copy value types for Sendable safety before entering Task.detached.
-            let inputSeries = series, vp = viewportMs, tc = targetPointCount
+            let inputSeries = series, vp = viewportMs, tc = dynamicTargetCount
             let result = await Task.detached(priority: .userInitiated) { () -> (
                 [(label: String, color: Color, ts: ContiguousArray<Double>, vals: ContiguousArray<Float>)],
                 Float, Float
             ) in
-                let pipeline = TransformPipeline.mvp(viewportMs: vp, targetCount: tc, pointsPerPixel: 1.0)
+                // Calculate data density (points/pixel) based on the first series.
+                let ppp = Double(inputSeries.first?.timestamps.count ?? 0) / Double(tc)
+                let pipeline = TransformPipeline.mvp(viewportMs: vp, targetCount: tc, pointsPerPixel: ppp)
                 var display: [(label: String, color: Color, ts: ContiguousArray<Double>, vals: ContiguousArray<Float>)] = []
                 for s in inputSeries {
                     let (dts, dvals) = pipeline.apply(timestamps: s.timestamps, values: s.values)
@@ -155,6 +162,14 @@ private struct MultiLineDataLayer: View, Equatable {
             displaySeries = result.0
             yRange = (result.1, result.2)
         }
+        // Measure actual rendered width so dynamicTargetCount stays in sync.
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { chartWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { w in chartWidth = w }
+            }
+        )
     }
 }
 

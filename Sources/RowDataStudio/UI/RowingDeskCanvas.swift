@@ -1,4 +1,4 @@
-// UI/RowingDeskCanvas.swift v2.0.0
+// UI/RowingDeskCanvas.swift v2.1.0
 /**
  * Infinite canvas for multi-widget analysis layout.
  *
@@ -12,6 +12,9 @@
  * - Playhead: `let` (not @ObservedObject). Child views observe it internally.
  *
  * --- Revision History ---
+ * v2.1.0 - 2026-03-12 - LineChart default → gps_gpmf_ts_speed (pure GPS, no fusion).
+ *                        MultiLineChart default → ACCL-Y + inertial velocity from ACCL-Y
+ *                        (bypasses fusion for comb-artifact investigation).
  * v2.0.0 - 2026-03-11 - ARCH FIX: Decouple zoom/pan from @Published sessionDocument.
  *                        All animations now target @State; body no longer re-evaluates
  *                        on every animation frame. Fixes 1.25s/frame sluggishness.
@@ -451,7 +454,9 @@ private struct CanvasWidgetLayer: View, Equatable {
                             playheadController: playheadController, viewportMs: viewport)
 
         case .multiLineChart:
-            let ids = widget.metricIDs.isEmpty ? [dataContext.selectedMetric] : widget.metricIDs
+            // Default: raw ACCL-Y (surge) only — unprocessed IMU signal for artifact debugging.
+            let defaultIDs = ["imu_raw_ts_acc_surge"]
+            let ids = widget.metricIDs.isEmpty ? defaultIDs : widget.metricIDs
             let series = MultiLineChartWidget.series(from: dataContext, metricIDs: ids)
             MultiLineChartWidget(series: series, playheadController: playheadController, viewportMs: viewport)
 

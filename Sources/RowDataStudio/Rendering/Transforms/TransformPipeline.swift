@@ -1,9 +1,10 @@
-// Rendering/Transforms/TransformPipeline.swift v1.0.0
+// Rendering/Transforms/TransformPipeline.swift v1.1.0
 /**
  * Composable rendering transform chain.
  * Applies a sequence of TransformStage instances to sensor data,
  * producing display-ready (timestamps, values) arrays.
  * --- Revision History ---
+ * v1.1.0 - 2026-03-12 - Added PreSmoothTransform before LTTB to eliminate comb artifact.
  * v1.0.0 - 2026-03-07 - Initial implementation (Phase 4: Rendering + MVP).
  */
 
@@ -15,10 +16,12 @@
 ///
 /// **Standard MVP pipeline:**
 /// ```
-/// ViewportCull → LTTBTransform(2000) → AdaptiveSmooth
+/// ViewportCull → PreSmoothTransform → LTTBTransform → AdaptiveSmooth
 /// ```
 ///
-/// Source: `docs/architecture/visualization.md` §Transform Pipelines
+/// `PreSmoothTransform` eliminates the comb artifact that LTTB produces on
+/// noisy high-frequency sensor data (≥ 50 Hz). Its SMA window scales with
+/// the decimation ratio so it is automatically tuned to the current zoom.
 public struct TransformPipeline: Sendable {
 
     private let stages: [any TransformStage]
@@ -66,6 +69,7 @@ public struct TransformPipeline: Sendable {
     ) -> TransformPipeline {
         TransformPipeline(stages: [
             ViewportCull(range: viewportMs),
+            PreSmoothTransform(targetCount: targetCount),
             LTTBTransform(targetCount: targetCount),
             AdaptiveSmooth.forZoom(pointsPerPixel: pointsPerPixel)
         ])

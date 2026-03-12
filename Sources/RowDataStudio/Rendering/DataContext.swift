@@ -1,8 +1,10 @@
-// Rendering/DataContext.swift v1.2.0
+// Rendering/DataContext.swift v1.3.0
 /**
  * Shared observable data reference for rendering widgets.
  * Holds the processed session buffers, fusion result, and active SessionDocument.
  * --- Revision History ---
+ * v1.3.0 - 2026-03-12 - Default metric → gps_gpmf_ts_speed; add imu_raw_ts_vel_inertial
+ *                        computed channel (trapezoidal integration of raw ACCL-Y at 200 Hz).
  * v1.2.0 - 2026-03-08 - Add sessionDocument for Phase 6 canvas integration.
  * v1.1.0 - 2026-03-07 - Switch from @Observable (macOS 14+) to ObservableObject (macOS 13+).
  * v1.0.0 - 2026-03-07 - Initial implementation (Phase 4: Rendering + MVP).
@@ -41,9 +43,10 @@ public final class DataContext: ObservableObject {
 
     /// Key of the currently selected metric channel for the line chart.
     ///
-    /// Valid keys: "fus_cal_ts_vel_inertial", "gps_gpmf_ts_speed",
-    /// "imu_raw_ts_acc_surge", "imu_flt_ts_acc_surge", "phys_ext_ts_hr".
-    @Published public var selectedMetric: String = "fus_cal_ts_vel_inertial"
+    /// Valid keys: "gps_gpmf_ts_speed", "fus_cal_ts_vel_inertial",
+    /// "imu_raw_ts_acc_surge", "imu_raw_ts_vel_inertial",
+    /// "imu_flt_ts_acc_surge", "phys_ext_ts_hr".
+    @Published public var selectedMetric: String = "gps_gpmf_ts_speed"
 
     public init() {}
 
@@ -65,10 +68,15 @@ public final class DataContext: ObservableObject {
     public func values(for key: String) -> ContiguousArray<Float>? {
         guard let b = buffers else { return nil }
         switch key {
+        case "gps_gpmf_ts_speed":        return b.gps_gpmf_ts_speed
         case "fus_cal_ts_vel_inertial":  return b.fus_cal_ts_vel_inertial
         case "imu_raw_ts_acc_surge":     return b.imu_raw_ts_acc_surge
+        case "imu_raw_ts_vel_inertial":
+            // Inertial velocity derived from raw IMU surge (ACCL-Y) via trapezoidal
+            // integration at the nominal 200 Hz IMU sample rate (dt = 5 ms).
+            // Useful for debugging the comb artifact independent of the fusion filter.
+            return DSP.integrate(b.imu_raw_ts_acc_surge, dt: 0.005)
         case "imu_flt_ts_acc_surge":     return b.imu_flt_ts_acc_surge
-        case "gps_gpmf_ts_speed":        return b.gps_gpmf_ts_speed
         case "phys_ext_ts_hr":           return b.phys_ext_ts_hr
         default:                          return b.dynamic[key]
         }
