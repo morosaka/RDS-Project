@@ -43,7 +43,7 @@ public struct TimelineTrack: View {
             ZStack(alignment: .leading) {
                 // Background
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(nsColor: .windowBackgroundColor))
+                    .fill(Color(white: 0.14)) // Fixed dark — app never follows system appearance
 
                 // Fill (video = checkerboard pattern placeholder, data = solid bar)
                 if isVideoTrack {

@@ -204,5 +204,5 @@ private struct StrokeActiveRowView: View {
         strokeStartTimesMs: startTimes
     )
     .frame(width: 300, height: 360)
-    .background(Color(nsColor: .windowBackgroundColor))
+    .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
 }

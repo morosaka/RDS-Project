@@ -28,6 +28,7 @@ struct RowDataStudioApp: App {
     var body: some Scene {
         WindowGroup {
             SessionListView()
+                .preferredColorScheme(.dark) // App never follows system light/dark setting
         }
         .windowStyle(.hiddenTitleBar)
         .commands {

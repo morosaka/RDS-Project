@@ -52,7 +52,7 @@ public struct LineChartWidget: View {
         .overlay {
             PlayheadOverlay(playheadController: playheadController, viewportMs: viewportMs)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
     }
 }
 

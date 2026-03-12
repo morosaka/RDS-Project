@@ -168,7 +168,7 @@ private struct MetricValueView: View {
         playheadController: pc
     )
     .frame(width: 200, height: 120)
-    .background(Color(nsColor: .windowBackgroundColor))
+    .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
     .cornerRadius(8)
     .shadow(radius: 2)
 }

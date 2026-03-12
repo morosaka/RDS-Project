@@ -70,7 +70,7 @@ public struct MultiLineChartWidget: View {
             // @ObservedObject lives here exclusively — widget parent NOT reactive at 60fps.
             MultiLinePlayheadOverlay(playheadController: playheadController, viewportMs: viewportMs)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
     }
 }
 

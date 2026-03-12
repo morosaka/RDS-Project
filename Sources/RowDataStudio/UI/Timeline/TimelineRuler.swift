@@ -108,6 +108,6 @@ public struct TimelineRuler: View {
             }
         }
         .frame(height: 28)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
     }
 }

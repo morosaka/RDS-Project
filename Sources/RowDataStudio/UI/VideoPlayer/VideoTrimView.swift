@@ -55,7 +55,7 @@ public struct VideoTrimView: View {
             ZStack(alignment: .bottomLeading) {
                 // Background bar
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(nsColor: .windowBackgroundColor))
+                    .fill(Color(white: 0.14)) // Fixed dark — app never follows system appearance
 
                 // Current trim range indicator
                 if let range = trimRange {

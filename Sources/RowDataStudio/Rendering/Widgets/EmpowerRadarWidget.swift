@@ -313,5 +313,5 @@ private struct EmpowerPlayheadProxy: View {
     let pc = PlayheadController()
     EmpowerRadarWidget(fusionResult: nil, playheadController: pc)
         .frame(width: 320, height: 320)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
 }
