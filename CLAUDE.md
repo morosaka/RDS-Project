@@ -20,7 +20,7 @@ cd modules/csv-swift-sdk-main && swift test     # 20 tests
 ```
 
 | Module | Tests | Framework | Status |
-|--------|-------|-----------|--------|
+| ------ | ----- | --------- | ------ |
 | gpmf-swift-sdk-main | 222 | XCTest | Complete |
 | fit-swift-sdk-main | 248 | Mixed XCTest + Swift Testing | Complete |
 | csv-swift-sdk-main | 20 | Swift Testing | Complete |
@@ -30,11 +30,13 @@ cd modules/csv-swift-sdk-main && swift test     # 20 tests
 ## Xcode Configuration (CRITICAL)
 
 Non-standard Xcode location on external volume:
-```
+
+```text
 /Volumes/WDSN770/Applications/Xcode.app
 ```
 
 If `swift test` fails with "no such module 'XCTest'":
+
 ```bash
 sudo xcode-select -s /Volumes/WDSN770/Applications/Xcode.app/Contents/Developer
 ```
@@ -44,7 +46,7 @@ Command Line Tools alone do not include XCTest on macOS 26.0. Full Xcode is requ
 ## Module Map
 
 | Module | Purpose | Status |
-|--------|---------|--------|
+| ------ | ------- | ------ |
 | `modules/gpmf-swift-sdk-main/` | GoPro GPMF parser (IMU, GPS, orientation) | Complete (222 tests) |
 | `modules/fit-swift-sdk-main/` | Garmin FIT protocol parser/encoder | Complete (248 tests) |
 | `modules/csv-swift-sdk-main/` | CSV parser + profiles (NK Empower, NK SpeedCoach, CrewNerd) | Complete (20 tests) |
@@ -64,7 +66,7 @@ Each module has its own `CLAUDE.md` with detailed architecture and conventions.
 ## Architectural Specifications
 
 | Topic | Document |
-|-------|----------|
+| ----- | -------- |
 | Full architecture + data models | `docs/architecture/kickoff-report.md` |
 | SessionDocument, SoA buffers, MetricDef | `docs/architecture/data-models.md` |
 | Visualization (Canvas, transforms, widgets) | `docs/architecture/visualization.md` |
@@ -77,7 +79,7 @@ Each module has its own `CLAUDE.md` with detailed architecture and conventions.
 ## Governance
 
 | Topic | Document |
-|-------|----------|
+| ----- | -------- |
 | Values, trade-offs, decisional boundaries | `.claude/INTENT.md` |
 | Code conventions, naming, testing patterns | `.claude/CONVENTIONS.md` |
 | Multi-agent protocols, session lifecycle | `.claude/AGENTS.md` |
