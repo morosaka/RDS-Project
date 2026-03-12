@@ -480,8 +480,7 @@ private struct CanvasWidgetLayer: View, Equatable {
                       timestamps: ts, playheadController: playheadController)
 
         case .empowerRadar:
-            EmpowerRadarWidget(currentStroke: nil, averageMetrics: [:],
-                               fusionResult: dataContext.fusionResult,
+            EmpowerRadarWidget(fusionResult: dataContext.fusionResult,
                                playheadController: playheadController)
 
         case .video:

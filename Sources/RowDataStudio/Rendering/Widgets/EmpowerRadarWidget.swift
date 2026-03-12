@@ -50,10 +50,7 @@ public struct EmpowerRadarWidget: View {
     let playheadController: PlayheadController
     let axes: [Axis]
 
-    /// Convenience init for canvas factory.
     public init(
-        currentStroke: PerStrokeStat?,
-        averageMetrics: [String: Double],
         fusionResult: FusionResult?,
         playheadController: PlayheadController,
         axes: [Axis] = Self.defaultAxes
@@ -61,28 +58,6 @@ public struct EmpowerRadarWidget: View {
         self.fusionResult = fusionResult
         self.playheadController = playheadController
         self.axes = axes
-    }
-
-    private var currentStroke: PerStrokeStat? {
-        guard let r = fusionResult else { return nil }
-        let playheadMs = playheadController.currentTimeMs
-        return r.perStrokeStats.last(where: { stat in
-            guard let stroke = r.strokes.first(where: { $0.index == stat.strokeIndex }) else { return false }
-            return stroke.startTime * 1000 <= playheadMs
-        })
-    }
-
-    private var averageMetrics: [String: Double] {
-        guard let r = fusionResult else { return [:] }
-        var sums = [String: Double](); var counts = [String: Int]()
-        for stat in r.perStrokeStats {
-            for (k, v) in stat.metrics {
-                sums[k, default: 0] += v; counts[k, default: 0] += 1
-            }
-        }
-        return sums.reduce(into: [String: Double]()) { acc, pair in
-            acc[pair.key] = pair.value / Double(counts[pair.key] ?? 1)
-        }
     }
 
     /// Default NK Empower axes with rowing-typical reference maxima.
@@ -108,6 +83,10 @@ public struct EmpowerRadarWidget: View {
 
 /// Only this struct subscribes to PlayheadController — the heavy radar Canvas
 /// and geometry calculations are isolated here at an appropriate granularity.
+///
+/// **Perf note:**
+/// - `averageMetrics` is session-wide; cached in @State, computed once off-thread.
+/// - Stroke lookup uses a pre-sorted array + binary search O(log n) instead of O(n²).
 private struct EmpowerPlayheadProxy: View {
     typealias Axis = EmpowerRadarWidget.Axis
 
@@ -115,31 +94,72 @@ private struct EmpowerPlayheadProxy: View {
     @ObservedObject var playheadController: PlayheadController
     let axes: [Axis]
 
-    private var currentStroke: PerStrokeStat? {
-        guard let r = fusionResult else { return nil }
-        let t = playheadController.currentTimeMs
-        return r.perStrokeStats.last(where: { stat in
-            guard let stroke = r.strokes.first(where: { $0.index == stat.strokeIndex }) else { return false }
-            return stroke.startTime * 1000 <= t
-        })
+    /// Session-wide averages — computed once when fusionResult changes, never per-frame.
+    @State private var cachedAverages: [String: Double] = [:]
+    /// Strokes sorted by startTimeMs for O(log n) binary search.
+    @State private var sortedStrokes: [(startMs: Double, stat: PerStrokeStat)] = []
+
+    /// Cache key: invalidated only when fusionResult content changes.
+    private var fusionKey: String {
+        guard let r = fusionResult else { return "nil" }
+        return "\(r.perStrokeStats.count):\(r.strokes.count)"
     }
 
-    private var averageMetrics: [String: Double] {
-        guard let r = fusionResult else { return [:] }
-        var sums = [String: Double](); var counts = [String: Int]()
-        for stat in r.perStrokeStats {
-            for (k, v) in stat.metrics { sums[k, default: 0] += v; counts[k, default: 0] += 1 }
+    /// O(log n) binary search for current stroke at playhead position.
+    private var currentStroke: PerStrokeStat? {
+        guard !sortedStrokes.isEmpty else { return nil }
+        let t = playheadController.currentTimeMs
+        var lo = 0, hi = sortedStrokes.count - 1
+        var result: PerStrokeStat? = nil
+        while lo <= hi {
+            let mid = (lo + hi) / 2
+            if sortedStrokes[mid].startMs <= t {
+                result = sortedStrokes[mid].stat
+                lo = mid + 1
+            } else {
+                hi = mid - 1
+            }
         }
-        return sums.reduce(into: [:]) { acc, pair in
-            acc[pair.key] = pair.value / Double(counts[pair.key] ?? 1)
-        }
+        return result
     }
 
     var body: some View {
-        if currentStroke != nil || !averageMetrics.isEmpty {
-            radarCanvas
-        } else {
-            noDataPlaceholder
+        Group {
+            if currentStroke != nil || !cachedAverages.isEmpty {
+                radarCanvas
+            } else {
+                noDataPlaceholder
+            }
+        }
+        // Re-run only when fusionResult changes — NOT on every playhead tick.
+        .task(id: fusionKey) {
+            let r = fusionResult
+            let result = await Task.detached(priority: .userInitiated) { () -> ([String: Double], [(Double, PerStrokeStat)]) in
+                guard let r else { return ([:], []) }
+                // 1. Build index: strokeIndex → startTimeMs
+                var startByIndex = [Int: Double]()
+                startByIndex.reserveCapacity(r.strokes.count)
+                for s in r.strokes { startByIndex[s.index] = s.startTime * 1000 }
+                // 2. Sort perStrokeStats by startTime for binary search
+                let sorted: [(Double, PerStrokeStat)] = r.perStrokeStats
+                    .compactMap { stat -> (Double, PerStrokeStat)? in
+                        guard let t = startByIndex[stat.strokeIndex] else { return nil }
+                        return (t, stat)
+                    }
+                    .sorted { $0.0 < $1.0 }
+                // 3. Compute session averages (O(n), done once)
+                var sums = [String: Double](); var counts = [String: Int]()
+                for stat in r.perStrokeStats {
+                    for (k, v) in stat.metrics { sums[k, default: 0] += v; counts[k, default: 0] += 1 }
+                }
+                let avgs = sums.reduce(into: [String: Double]()) { acc, pair in
+                    acc[pair.key] = pair.value / Double(counts[pair.key] ?? 1)
+                }
+                return (avgs, sorted)
+            }.value
+            guard !Task.isCancelled else { return }
+            cachedAverages = result.0
+            sortedStrokes  = result.1.map { ($0.0, $0.1) }
         }
     }
 
@@ -174,10 +194,10 @@ private struct EmpowerPlayheadProxy: View {
                     context.stroke(spoke, with: .color(.gray.opacity(0.2)), lineWidth: 0.5)
                 }
 
-                // Average polygon (gray fill)
-                if !averageMetrics.isEmpty {
+                // Average polygon (gray fill — uses session-wide cache, never recomputed per-frame)
+                if !cachedAverages.isEmpty {
                     let avgValues = axes.map { axis -> Double in
-                        let v = averageMetrics[axis.key] ?? 0
+                        let v = cachedAverages[axis.key] ?? 0
                         return normalizedValue(v, axis: axis)
                     }
                     let avgPath = dataPolygon(values: avgValues, n: n, center: center, radius: radius)
@@ -290,30 +310,8 @@ private struct EmpowerPlayheadProxy: View {
 }
 
 #Preview {
-    let stroke = PerStrokeStat(
-        strokeIndex: 5,
-        duration: 2.4,
-        strokeRate: 24.0,
-        metrics: [
-            "mech_ext_ps_force_avg":    210,
-            "mech_ext_ps_force_max":    380,
-            "mech_ext_ps_work":         420,
-            "mech_ext_ps_angle_catch":  62,
-            "mech_ext_ps_angle_finish": 38,
-            "mech_ext_ps_slip":         6.5
-        ]
-    )
-    let avg: [String: Double] = [
-        "mech_ext_ps_force_avg":    190,
-        "mech_ext_ps_force_max":    350,
-        "mech_ext_ps_work":         390,
-        "mech_ext_ps_angle_catch":  58,
-        "mech_ext_ps_angle_finish": 35,
-        "mech_ext_ps_slip":         8.0
-    ]
-
     let pc = PlayheadController()
-    EmpowerRadarWidget(currentStroke: stroke, averageMetrics: avg, fusionResult: nil, playheadController: pc)
+    EmpowerRadarWidget(fusionResult: nil, playheadController: pc)
         .frame(width: 320, height: 320)
         .background(Color(nsColor: .windowBackgroundColor))
 }
