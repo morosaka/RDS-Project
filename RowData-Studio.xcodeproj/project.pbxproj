@@ -1,0 +1,602 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CC0623692F5F6CC9008DDB84 /* RowDataStudio in Frameworks */ = {isa = PBXBuildFile; productRef = CC0623682F5F6CC9008DDB84 /* RowDataStudio */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		CC0623482F5F428F008DDB84 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC0623322F5F428F008DDB84 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC0623392F5F428F008DDB84;
+			remoteInfo = "RowData-Studio";
+		};
+		CC0623522F5F428F008DDB84 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CC0623322F5F428F008DDB84 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CC0623392F5F428F008DDB84;
+			remoteInfo = "RowData-Studio";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		CC06233A2F5F428F008DDB84 /* RowData-Studio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RowData-Studio.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC0623472F5F428F008DDB84 /* RowData-StudioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "RowData-StudioTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		CC0623512F5F428F008DDB84 /* RowData-StudioUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "RowData-StudioUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		CC06233C2F5F428F008DDB84 /* RowData-Studio */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "RowData-Studio";
+			sourceTree = "<group>";
+		};
+		CC06234A2F5F428F008DDB84 /* RowData-StudioTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "RowData-StudioTests";
+			sourceTree = "<group>";
+		};
+		CC0623542F5F428F008DDB84 /* RowData-StudioUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "RowData-StudioUITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CC0623372F5F428F008DDB84 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC0623692F5F6CC9008DDB84 /* RowDataStudio in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC0623442F5F428F008DDB84 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC06234E2F5F428F008DDB84 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		CC0623312F5F428F008DDB84 = {
+			isa = PBXGroup;
+			children = (
+				CC06233C2F5F428F008DDB84 /* RowData-Studio */,
+				CC06234A2F5F428F008DDB84 /* RowData-StudioTests */,
+				CC0623542F5F428F008DDB84 /* RowData-StudioUITests */,
+				CC0623672F5F6CC9008DDB84 /* Frameworks */,
+				CC06233B2F5F428F008DDB84 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CC06233B2F5F428F008DDB84 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CC06233A2F5F428F008DDB84 /* RowData-Studio.app */,
+				CC0623472F5F428F008DDB84 /* RowData-StudioTests.xctest */,
+				CC0623512F5F428F008DDB84 /* RowData-StudioUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CC0623672F5F6CC9008DDB84 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CC0623392F5F428F008DDB84 /* RowData-Studio */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC06235B2F5F428F008DDB84 /* Build configuration list for PBXNativeTarget "RowData-Studio" */;
+			buildPhases = (
+				CC0623362F5F428F008DDB84 /* Sources */,
+				CC0623372F5F428F008DDB84 /* Frameworks */,
+				CC0623382F5F428F008DDB84 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CC06233C2F5F428F008DDB84 /* RowData-Studio */,
+			);
+			name = "RowData-Studio";
+			packageProductDependencies = (
+				CC0623682F5F6CC9008DDB84 /* RowDataStudio */,
+			);
+			productName = "RowData-Studio";
+			productReference = CC06233A2F5F428F008DDB84 /* RowData-Studio.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CC0623462F5F428F008DDB84 /* RowData-StudioTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC06235E2F5F428F008DDB84 /* Build configuration list for PBXNativeTarget "RowData-StudioTests" */;
+			buildPhases = (
+				CC0623432F5F428F008DDB84 /* Sources */,
+				CC0623442F5F428F008DDB84 /* Frameworks */,
+				CC0623452F5F428F008DDB84 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC0623492F5F428F008DDB84 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CC06234A2F5F428F008DDB84 /* RowData-StudioTests */,
+			);
+			name = "RowData-StudioTests";
+			packageProductDependencies = (
+			);
+			productName = "RowData-StudioTests";
+			productReference = CC0623472F5F428F008DDB84 /* RowData-StudioTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		CC0623502F5F428F008DDB84 /* RowData-StudioUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CC0623612F5F428F008DDB84 /* Build configuration list for PBXNativeTarget "RowData-StudioUITests" */;
+			buildPhases = (
+				CC06234D2F5F428F008DDB84 /* Sources */,
+				CC06234E2F5F428F008DDB84 /* Frameworks */,
+				CC06234F2F5F428F008DDB84 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC0623532F5F428F008DDB84 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CC0623542F5F428F008DDB84 /* RowData-StudioUITests */,
+			);
+			name = "RowData-StudioUITests";
+			packageProductDependencies = (
+			);
+			productName = "RowData-StudioUITests";
+			productReference = CC0623512F5F428F008DDB84 /* RowData-StudioUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CC0623322F5F428F008DDB84 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					CC0623392F5F428F008DDB84 = {
+						CreatedOnToolsVersion = 26.3;
+						LastSwiftMigration = 2630;
+					};
+					CC0623462F5F428F008DDB84 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = CC0623392F5F428F008DDB84;
+					};
+					CC0623502F5F428F008DDB84 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = CC0623392F5F428F008DDB84;
+					};
+				};
+			};
+			buildConfigurationList = CC0623352F5F428F008DDB84 /* Build configuration list for PBXProject "RowData-Studio" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CC0623312F5F428F008DDB84;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CC0623642F5F42BB008DDB84 /* XCLocalSwiftPackageReference "../../RowData-Studio" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CC06233B2F5F428F008DDB84 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CC0623392F5F428F008DDB84 /* RowData-Studio */,
+				CC0623462F5F428F008DDB84 /* RowData-StudioTests */,
+				CC0623502F5F428F008DDB84 /* RowData-StudioUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CC0623382F5F428F008DDB84 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC0623452F5F428F008DDB84 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC06234F2F5F428F008DDB84 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CC0623362F5F428F008DDB84 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC0623432F5F428F008DDB84 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC06234D2F5F428F008DDB84 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		CC0623492F5F428F008DDB84 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC0623392F5F428F008DDB84 /* RowData-Studio */;
+			targetProxy = CC0623482F5F428F008DDB84 /* PBXContainerItemProxy */;
+		};
+		CC0623532F5F428F008DDB84 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CC0623392F5F428F008DDB84 /* RowData-Studio */;
+			targetProxy = CC0623522F5F428F008DDB84 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		CC0623592F5F428F008DDB84 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		CC06235A2F5F428F008DDB84 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		CC06235C2F5F428F008DDB84 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.morosaka.RowData-Studio";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CC06235D2F5F428F008DDB84 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.morosaka.RowData-Studio";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CC06235F2F5F428F008DDB84 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.morosaka.RowData-StudioTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RowData-Studio.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RowData-Studio";
+			};
+			name = Debug;
+		};
+		CC0623602F5F428F008DDB84 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.morosaka.RowData-StudioTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RowData-Studio.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RowData-Studio";
+			};
+			name = Release;
+		};
+		CC0623622F5F428F008DDB84 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.morosaka.RowData-StudioUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "RowData-Studio";
+			};
+			name = Debug;
+		};
+		CC0623632F5F428F008DDB84 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.morosaka.RowData-StudioUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = "RowData-Studio";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CC0623352F5F428F008DDB84 /* Build configuration list for PBXProject "RowData-Studio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC0623592F5F428F008DDB84 /* Debug */,
+				CC06235A2F5F428F008DDB84 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC06235B2F5F428F008DDB84 /* Build configuration list for PBXNativeTarget "RowData-Studio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC06235C2F5F428F008DDB84 /* Debug */,
+				CC06235D2F5F428F008DDB84 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC06235E2F5F428F008DDB84 /* Build configuration list for PBXNativeTarget "RowData-StudioTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC06235F2F5F428F008DDB84 /* Debug */,
+				CC0623602F5F428F008DDB84 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CC0623612F5F428F008DDB84 /* Build configuration list for PBXNativeTarget "RowData-StudioUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CC0623622F5F428F008DDB84 /* Debug */,
+				CC0623632F5F428F008DDB84 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		CC0623642F5F42BB008DDB84 /* XCLocalSwiftPackageReference "../../RowData-Studio" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../RowData-Studio";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CC0623682F5F6CC9008DDB84 /* RowDataStudio */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CC0623642F5F42BB008DDB84 /* XCLocalSwiftPackageReference "../../RowData-Studio" */;
+			productName = RowDataStudio;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = CC0623322F5F428F008DDB84 /* Project object */;
+}
