@@ -12,7 +12,8 @@
       "Bash(rsync -av /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/ /Volumes/WDSN770/Projects/Antigravity/RDS-Xcode/RowData-Studio/Sources/RowDataStudio/)",
       "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 grep -r \"public enum StreamType\\\\|struct StreamType\\\\|class StreamType\" /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/)",
       "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 grep -n \"isPrimaryTier\\\\|var zIndex\\\\|\\\\.zIndex\" /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/Core/Models/CanvasState.swift)",
-      "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 grep -n \"isPrimaryTier\" /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/Core/Models/CanvasState.swift)"
+      "Bash(GIT_DISCOVERY_ACROSS_FILESYSTEM=1 grep -n \"isPrimaryTier\" /Volumes/WDSN770/Projects/Antigravity/RowData-Studio/Sources/RowDataStudio/Core/Models/CanvasState.swift)",
+      "Bash(wc -l /private/tmp/claude-501/-Volumes-WDSN770-Projects-Antigravity-RowData-Studio/tasks/*.output)"
     ]
   }
 }
