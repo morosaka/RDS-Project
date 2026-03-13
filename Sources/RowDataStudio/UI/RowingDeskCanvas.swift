@@ -1,4 +1,4 @@
-// UI/RowingDeskCanvas.swift v2.2.0
+// UI/RowingDeskCanvas.swift v2.3.0
 /**
  * Infinite canvas for multi-widget analysis layout.
  *
@@ -12,6 +12,10 @@
  * - Playhead: `let` (not @ObservedObject). Child views observe it internally.
  *
  * --- Revision History ---
+ * v2.3.0 - 2026-03-13 - Widget↔Track lifecycle: mutateSession replaces mutateWidgets;
+ *                        addWidget creates TimelineTrack entries; deleteWidget removes
+ *                        non-pinned linked tracks. streamType(for:) + tracks(for:)
+ *                        utilities (Phase 8c.2: Widget↔Track Lifecycle).
  * v2.2.0 - 2026-03-13 - Magnetic snapping in commitMove via SnapEngine; snap guide overlay
  *                        (Phase 8b.6: Magnetic Snapping).
  * v2.1.0 - 2026-03-12 - LineChart default → gps_gpmf_ts_speed (pure GPS, no fusion).
@@ -172,7 +176,11 @@ public struct RowingDeskCanvas: View {
         // Use local canvasPan (not sessionDocument) — avoids reading @Published model
         let pos = CGPoint(x: 120 + offset - canvasPan.x, y: 100 + offset - canvasPan.y)
         let newWidget = WidgetState.make(type: type, position: pos)
-        mutateWidgets { $0.append(newWidget) }
+        let newTracks = Self.tracks(for: newWidget)
+        mutateSession { doc in
+            doc.canvas.widgets.append(newWidget)
+            doc.timeline.tracks.append(contentsOf: newTracks)
+        }
         selectedWidgetIDs = [newWidget.id]
         showWidgetPalette = false
     }
@@ -204,31 +212,35 @@ public struct RowingDeskCanvas: View {
                 await MainActor.run { snapGuides = [] }
             }
         }
-        mutateWidgets { widgets in
-            if let i = widgets.firstIndex(where: { $0.id == id }) {
-                widgets[i].position = snapped
+        mutateSession { doc in
+            if let i = doc.canvas.widgets.firstIndex(where: { $0.id == id }) {
+                doc.canvas.widgets[i].position = snapped
             }
         }
     }
 
     private func commitResize(id: UUID, to newSize: CGSize) {
-        mutateWidgets { widgets in
-            if let i = widgets.firstIndex(where: { $0.id == id }) {
-                widgets[i].size = newSize
+        mutateSession { doc in
+            if let i = doc.canvas.widgets.firstIndex(where: { $0.id == id }) {
+                doc.canvas.widgets[i].size = newSize
             }
         }
     }
 
     private func deleteWidget(id: UUID) {
-        mutateWidgets { $0.removeAll { $0.id == id } }
+        mutateSession { doc in
+            doc.canvas.widgets.removeAll { $0.id == id }
+            // Remove non-pinned tracks whose widget was deleted; pinned tracks survive.
+            doc.timeline.tracks.removeAll { !$0.isPinned && $0.linkedWidgetID == id }
+        }
         selectedWidgetIDs.remove(id)
     }
 
     private func toggleVisibility(id: UUID) {
-        mutateWidgets { widgets in
-            if let i = widgets.firstIndex(where: { $0.id == id }) {
-                let current = widgets[i].isVisible
-                widgets[i].configuration["isVisible"] = AnyCodable(!current)
+        mutateSession { doc in
+            if let i = doc.canvas.widgets.firstIndex(where: { $0.id == id }) {
+                let current = doc.canvas.widgets[i].isVisible
+                doc.canvas.widgets[i].configuration["isVisible"] = AnyCodable(!current)
             }
         }
     }
@@ -241,22 +253,22 @@ public struct RowingDeskCanvas: View {
         } else {
             selectedWidgetIDs = [id]
         }
-        mutateWidgets { widgets in
-            if let idx = widgets.firstIndex(where: { $0.id == id }) {
-                widgets[idx].zIndex = nextZIndex
+        mutateSession { doc in
+            if let idx = doc.canvas.widgets.firstIndex(where: { $0.id == id }) {
+                doc.canvas.widgets[idx].zIndex = nextZIndex
                 nextZIndex += 1
             }
         }
     }
 
     private func toggleTier(id: UUID) {
-        mutateWidgets { widgets in
-            guard let i = widgets.firstIndex(where: { $0.id == id }) else { return }
-            let isPrimary = widgets[i].isPrimaryTier
+        mutateSession { doc in
+            guard let i = doc.canvas.widgets.firstIndex(where: { $0.id == id }) else { return }
+            let isPrimary = doc.canvas.widgets[i].isPrimaryTier
             let newPrimary = !isPrimary
-            widgets[i].configuration["isPrimaryTier"] = AnyCodable(newPrimary)
-            let defaultSize = widgets[i].type?.defaultSize ?? CGSize(width: 400, height: 300)
-            widgets[i].size = newPrimary
+            doc.canvas.widgets[i].configuration["isPrimaryTier"] = AnyCodable(newPrimary)
+            let defaultSize = doc.canvas.widgets[i].type?.defaultSize ?? CGSize(width: 400, height: 300)
+            doc.canvas.widgets[i].size = newPrimary
                 ? defaultSize
                 : CGSize(width: defaultSize.width * 0.5, height: defaultSize.height * 0.5)
         }
@@ -379,16 +391,73 @@ public struct RowingDeskCanvas: View {
         }
     }
 
-    /// Mutate *widget* layout (position, size, visibility, tier) and debounce disk write.
-    /// This is the ONLY path that writes to sessionDocument.canvas.widgets.
-    private func mutateWidgets(_ mutation: (inout [WidgetState]) -> Void) {
+    /// Mutate the session document (canvas + timeline) and debounce disk write.
+    ///
+    /// This is the ONLY path that writes to `sessionDocument`. Replaces the old
+    /// `mutateWidgets` which only reached `canvas.widgets`.
+    private func mutateSession(_ mutation: (inout SessionDocument) -> Void) {
         guard dataContext.sessionDocument != nil else { return }
-        mutation(&dataContext.sessionDocument!.canvas.widgets)
+        mutation(&dataContext.sessionDocument!)
         widgetSaveTask?.cancel()
         widgetSaveTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled, let doc = dataContext.sessionDocument else { return }
             if let store = try? SessionStore() { try? await store.save(doc) }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MARK: - Track lifecycle utilities
+    // `internal` (not private) so TrackLifecycleTests can call them directly.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Infers the `StreamType` from a metric ID string by parsing its family prefix.
+    nonisolated static func streamType(for metricID: String) -> StreamType {
+        if metricID.hasPrefix("gps_") { return .gps }
+        if metricID.hasPrefix("imu_") {
+            if metricID.contains("acc") { return .accl }
+            if metricID.contains("gyro") { return .gyro }
+        }
+        if metricID.hasPrefix("fit_") {
+            if metricID.contains("hr") || metricID.contains("heart") { return .hr }
+            if metricID.contains("cad") { return .cadence }
+            if metricID.contains("power") { return .power }
+            if metricID.contains("temp") { return .temperature }
+            if metricID.contains("speed") || metricID.contains("vel") { return .speed }
+        }
+        if metricID.hasPrefix("fus_") {
+            if metricID.contains("vel") { return .fusedVelocity }
+            if metricID.contains("pitch") { return .fusedPitch }
+            if metricID.contains("roll") { return .fusedRoll }
+        }
+        return .speed   // default fallback
+    }
+
+    /// Returns the `TimelineTrack` entries to create when `widget` is added to the canvas.
+    ///
+    /// Widget type → track count:
+    /// - `.video`                      → 1 (stream: `.video`)
+    /// - `.map`                        → 1 (stream: `.gps`)
+    /// - `.lineChart`                  → 1 per metricID
+    /// - `.multiLineChart`             → N per metricID
+    /// - `.strokeTable`                → 1 per metricID
+    /// - `.empowerRadar`, `.metricCard`→ 0 (derived / KPI, no timeline track needed)
+    nonisolated static func tracks(for widget: WidgetState) -> [TimelineTrack] {
+        guard let type = widget.type else { return [] }
+        switch type {
+        case .video:
+            return [.virtual(stream: .video, linkedWidgetID: widget.id, displayName: "Video")]
+        case .map:
+            return [.virtual(stream: .gps, linkedWidgetID: widget.id, displayName: "GPS Track")]
+        case .lineChart, .multiLineChart, .strokeTable:
+            return widget.metricIDs.map { metricID in
+                    .virtual(stream: streamType(for: metricID),
+                             linkedWidgetID: widget.id,
+                             metricID: metricID,
+                             displayName: metricID)
+            }
+        case .empowerRadar, .metricCard:
+            return []   // Derived / per-stroke KPI — no timeline track
         }
     }
 

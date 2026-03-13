@@ -1,15 +1,19 @@
-// UI/Timeline/TimelineTrack.swift v1.0.0
+// UI/Timeline/TimelineTrack.swift v1.1.0
 /**
- * Single track row in a timeline display.
+ * Single track row in a timeline display (legacy View component).
  * Shows label, color indicator, and optional fill bar for duration.
  *
+ * NOTE: Renamed from TimelineTrack → TimelineTrackRow to avoid conflict with
+ *       Core/Models/TimelineTrack (data model). Will be fully redesigned in 8c.3.
+ *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-13 - Rename to TimelineTrackRow (Phase 8c.2: resolve naming conflict).
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 7).
  */
 
 import SwiftUI
 
-public struct TimelineTrack: View {
+public struct TimelineTrackRow: View {
     let label: String
     let color: Color
     let isVideoTrack: Bool

@@ -5,8 +5,9 @@
 // Timeline track reference with sync offset.
 // Links a data stream from a DataSource to the session timeline.
 //
-// Version: 1.0.0 (2026-03-01)
+// Version: 1.1.0 (2026-03-13)
 // Revision History:
+//   2026-03-13: Add TimelineTrack.virtual() factory for widget-generated tracks (Phase 8c.2).
 //   2026-03-01: Initial implementation (Phase 1: Data Models)
 //
 // Source: docs/architecture/data-models.md §SessionDocument.timeline.tracks
@@ -127,5 +128,29 @@ public struct TimelineTrack: Codable, Sendable, Hashable, Identifiable {
         isVisible = try container.decodeIfPresent(Bool.self, forKey: .isVisible) ?? true
         isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
         isSolo = try container.decodeIfPresent(Bool.self, forKey: .isSolo) ?? false
+    }
+}
+
+// MARK: - Factory
+
+extension TimelineTrack {
+    /// Creates a virtual (widget-generated) track with no real DataSource.
+    ///
+    /// Used when adding a widget to the canvas automatically generates timeline tracks.
+    /// The `sourceID` is a synthetic UUID — it carries no DataSource reference.
+    /// The `linkedWidgetID` is the authoritative back-reference.
+    public static func virtual(
+        stream: StreamType,
+        linkedWidgetID: UUID,
+        metricID: String? = nil,
+        displayName: String? = nil
+    ) -> TimelineTrack {
+        TimelineTrack(
+            sourceID: UUID(),   // synthetic — no real DataSource
+            stream: stream,
+            displayName: displayName,
+            linkedWidgetID: linkedWidgetID,
+            metricID: metricID
+        )
     }
 }

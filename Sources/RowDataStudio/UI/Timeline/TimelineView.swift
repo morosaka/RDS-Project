@@ -105,7 +105,7 @@ public struct TimelineView: View {
     private func timelineTrackForSource(_ source: DataSource, doc: SessionDocument) -> some View {
         switch source {
         case .goProVideo(_, _, let role):
-            TimelineTrack(
+            TimelineTrackRow(
                 label: "Video (\(role.rawValue))",
                 color: .blue,
                 isVideoTrack: true,
@@ -113,7 +113,7 @@ public struct TimelineView: View {
                 durationMs: doc.timeline.duration * 1000
             )
         case .fitFile(_, _, let device):
-            TimelineTrack(
+            TimelineTrackRow(
                 label: "FIT (\(device ?? "Unknown"))",
                 color: .green,
                 isVideoTrack: false,
@@ -121,7 +121,7 @@ public struct TimelineView: View {
                 durationMs: doc.timeline.duration * 1000
             )
         case .csvFile(_, _, let device):
-            TimelineTrack(
+            TimelineTrackRow(
                 label: "CSV (\(device ?? "Unknown"))",
                 color: .orange,
                 isVideoTrack: false,
