@@ -1,4 +1,4 @@
-// Rendering/Widgets/LineChartWidget.swift v1.4.0
+// Rendering/Widgets/LineChartWidget.swift v1.5.0
 /**
  * Single-series line chart widget.
  *
@@ -9,7 +9,14 @@
  * - PlayheadOverlay subscribes to PlayheadController internally; parent widget does NOT
  *   have @ObservedObject, so its body is not re-evaluated at 60fps.
  *
+ * **Local zoom (v1.5 — Layer 3 of three-layer zoom model):**
+ * - MagnificationGesture inside widget → zooms X axis locally (does not affect siblings).
+ * - Double-tap → reset to global viewportMs.
+ * - X-axis labels turn accent-orange when widget is in local zoom mode.
+ *
  * --- Revision History ---
+ * v1.5.0 - 2026-03-13 - Local X-axis zoom via MagnificationGesture + double-tap reset
+ *                        (Phase 8b.5: Three-Layer Zoom Model).
  * v1.4.0 - 2026-03-12 - Dynamic targetCount = canvas pixel width (removes hardcoded 2000).
  * v1.3.0 - 2026-03-12 - Pipeline moved off main thread; @State result cache; removed GeometryReader.
  * v1.2.0 - 2026-03-11 - PlayheadOverlay owns @ObservedObject, parent is plain `let`.
@@ -23,6 +30,9 @@ import SwiftUI
 ///
 /// `targetPointCount` is no longer a parameter — it is computed dynamically
 /// as the widget's actual pixel width, giving exactly 1 LTTB point per pixel.
+///
+/// **Local zoom:** MagnificationGesture zooms the X axis independently of other widgets.
+/// Double-tap resets to the global `viewportMs`. X-axis labels turn accent-orange when local zoom is active.
 public struct LineChartWidget: View {
 
     let timestamps: ContiguousArray<Double>
@@ -30,6 +40,12 @@ public struct LineChartWidget: View {
     /// Plain `let` — NOT @ObservedObject. Only child `PlayheadOverlay` subscribes.
     let playheadController: PlayheadController
     let viewportMs: ClosedRange<Double>
+
+    /// Local viewport override. `nil` = linked to global viewportMs (Layer 2).
+    @State private var localViewportMs: ClosedRange<Double>? = nil
+
+    private var effectiveViewport: ClosedRange<Double> { localViewportMs ?? viewportMs }
+    private var isLocalZoom: Bool { localViewportMs != nil }
 
     public init(
         timestamps: ContiguousArray<Double>,
@@ -47,12 +63,30 @@ public struct LineChartWidget: View {
         LineChartDataLayer(
             timestamps: timestamps,
             values: values,
-            viewportMs: viewportMs
+            viewportMs: effectiveViewport,
+            isLocalZoom: isLocalZoom
         )
         .overlay {
-            PlayheadOverlay(playheadController: playheadController, viewportMs: viewportMs)
+            PlayheadOverlay(playheadController: playheadController, viewportMs: effectiveViewport)
         }
         .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
+        // Layer 3: local X-axis zoom. `.simultaneousGesture` so WidgetContainer drag is not blocked.
+        .simultaneousGesture(
+            MagnificationGesture()
+                .onChanged { value in
+                    let base = localViewportMs ?? viewportMs
+                    let globalSpan = viewportMs.upperBound - viewportMs.lowerBound
+                    localViewportMs = LocalZoomMath.applyXZoom(
+                        local: base,
+                        magnification: Double(value),
+                        globalSpan: globalSpan
+                    )
+                }
+        )
+        // Double-tap resets local zoom → re-links to global viewport.
+        .onTapGesture(count: 2) {
+            localViewportMs = nil
+        }
     }
 }
 
@@ -65,6 +99,8 @@ private struct LineChartDataLayer: View, Equatable {
     let timestamps: ContiguousArray<Double>
     let values: ContiguousArray<Float>
     let viewportMs: ClosedRange<Double>
+    /// When true, X-axis labels render in accent-orange to signal local zoom is active.
+    let isLocalZoom: Bool
 
     // Dynamic target count = widget pixel width (1 point per pixel, min 200).
     @State private var chartWidth: CGFloat = 480
@@ -79,6 +115,7 @@ private struct LineChartDataLayer: View, Equatable {
         lhs.timestamps.count == rhs.timestamps.count &&
         lhs.values.count == rhs.values.count &&
         lhs.viewportMs == rhs.viewportMs &&
+        lhs.isLocalZoom == rhs.isLocalZoom &&
         lhs.timestamps.first == rhs.timestamps.first &&
         lhs.timestamps.last == rhs.timestamps.last &&
         lhs.values.first == rhs.values.first &&
@@ -88,7 +125,7 @@ private struct LineChartDataLayer: View, Equatable {
     /// Cache invalidation key — changes when data, viewport, canvas width, or metric changes.
     /// values.first/last distinguish between different metrics sharing the same array length.
     private var pipelineKey: String {
-        "\(timestamps.count):\(values.count):\(viewportMs.lowerBound):\(viewportMs.upperBound):\(dynamicTargetCount):\(values.first ?? 0):\(values.last ?? 0)"
+        "\(timestamps.count):\(values.count):\(viewportMs.lowerBound):\(viewportMs.upperBound):\(dynamicTargetCount):\(values.first ?? 0):\(values.last ?? 0):\(isLocalZoom)"
     }
 
     var body: some View {
@@ -153,10 +190,29 @@ private struct LineChartDataLayer: View, Equatable {
 
     @ViewBuilder
     private func axisLabels(yMin: Float, yMax: Float) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(formatValue(yMax)).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).padding([.top, .leading], 4)
-            Spacer()
-            Text(formatValue(yMin)).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).padding([.bottom, .leading], 4)
+        let xLabelColor: Color = isLocalZoom ? RDS.Colors.accent : .secondary
+        ZStack(alignment: .topLeading) {
+            // Y-axis labels (left edge)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(formatValue(yMax)).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).padding([.top, .leading], 4)
+                Spacer()
+                Text(formatValue(yMin)).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary).padding([.bottom, .leading], 4)
+            }
+            // X-axis viewport labels (bottom corners) — accent when local zoom active
+            VStack {
+                Spacer()
+                HStack {
+                    Text(formatMs(viewportMs.lowerBound))
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundStyle(xLabelColor)
+                        .padding([.bottom, .leading], 4)
+                    Spacer()
+                    Text(formatMs(viewportMs.upperBound))
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundStyle(xLabelColor)
+                        .padding([.bottom, .trailing], 4)
+                }
+            }
         }
     }
 }
@@ -188,6 +244,14 @@ private func formatValue(_ v: Float) -> String {
     if abs(v) >= 1000 { return String(format: "%.0f", v) }
     if abs(v) >= 100  { return String(format: "%.1f", v) }
     return String(format: "%.2f", v)
+}
+
+/// Format milliseconds as M:SS for X-axis viewport labels.
+private func formatMs(_ ms: Double) -> String {
+    let totalSec = Int(ms / 1000)
+    let m = totalSec / 60
+    let s = totalSec % 60
+    return String(format: "%d:%02d", m, s)
 }
 
 // MARK: - Playhead Overlay (60fps child)

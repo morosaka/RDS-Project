@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		CC0623692F5F6CC9008DDB84 /* RowDataStudio in Frameworks */ = {isa = PBXBuildFile; productRef = CC0623682F5F6CC9008DDB84 /* RowDataStudio */; };
+		CCB7EB9D2F640F1E00297328 /* RowDataStudio in Frameworks */ = {isa = PBXBuildFile; productRef = CCB7EB9C2F640F1E00297328 /* RowDataStudio */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,7 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CC0623692F5F6CC9008DDB84 /* RowDataStudio in Frameworks */,
+				CCB7EB9D2F640F1E00297328 /* RowDataStudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,7 +125,7 @@
 			);
 			name = "RowData-Studio";
 			packageProductDependencies = (
-				CC0623682F5F6CC9008DDB84 /* RowDataStudio */,
+				CCB7EB9C2F640F1E00297328 /* RowDataStudio */,
 			);
 			productName = "RowData-Studio";
 			productReference = CC06233A2F5F428F008DDB84 /* RowData-Studio.app */;
@@ -211,7 +211,7 @@
 			mainGroup = CC0623312F5F428F008DDB84;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				CC0623642F5F42BB008DDB84 /* XCLocalSwiftPackageReference "../../RowData-Studio" */,
+				CCB7EB9B2F640D9F00297328 /* XCLocalSwiftPackageReference "../RowData-Studio" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = CC06233B2F5F428F008DDB84 /* Products */;
@@ -584,16 +584,16 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		CC0623642F5F42BB008DDB84 /* XCLocalSwiftPackageReference "../../RowData-Studio" */ = {
+		CCB7EB9B2F640D9F00297328 /* XCLocalSwiftPackageReference "../RowData-Studio" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../RowData-Studio";
+			relativePath = "../RowData-Studio";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		CC0623682F5F6CC9008DDB84 /* RowDataStudio */ = {
+		CCB7EB9C2F640F1E00297328 /* RowDataStudio */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = CC0623642F5F42BB008DDB84 /* XCLocalSwiftPackageReference "../../RowData-Studio" */;
+			package = CCB7EB9B2F640D9F00297328 /* XCLocalSwiftPackageReference "../RowData-Studio" */;
 			productName = RowDataStudio;
 		};
 /* End XCSwiftPackageProductDependency section */

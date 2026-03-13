@@ -1,4 +1,4 @@
-// Rendering/Widgets/MultiLineChartWidget.swift v1.4.0
+// Rendering/Widgets/MultiLineChartWidget.swift v1.5.0
 /**
  * Multi-series line chart widget for metric overlay comparison.
  *
@@ -7,7 +7,14 @@
  *   via `.task(id:)`. Body draws exclusively from @State cache.
  * - MultiLinePlayheadOverlay has its own @ObservedObject; parent widget is plain `let`.
  *
+ * **Local zoom (v1.5 — Layer 3 of three-layer zoom model):**
+ * - MagnificationGesture inside widget → zooms X axis locally.
+ * - Double-tap → reset to global viewportMs.
+ * - X-axis labels turn accent-orange when widget is in local zoom mode.
+ *
  * --- Revision History ---
+ * v1.5.0 - 2026-03-13 - Local X-axis zoom via MagnificationGesture + double-tap reset
+ *                        (Phase 8b.5: Three-Layer Zoom Model).
  * v1.4.0 - 2026-03-12 - Dynamic targetCount = canvas pixel width (removes hardcoded 1500).
  * v1.3.0 - 2026-03-12 - Pipeline moved off main thread; @State result cache.
  * v1.2.0 - 2026-03-11 - Widget takes PlayheadController as let; overlay observes internally.
@@ -44,12 +51,21 @@ public struct MetricSeries: Identifiable, Sendable {
 ///
 /// `targetPointCount` is no longer a parameter — it is computed dynamically as the widget's
 /// actual pixel width, giving exactly 1 LTTB point per pixel.
+///
+/// **Local zoom:** MagnificationGesture zooms the X axis independently of other widgets.
+/// Double-tap resets to the global `viewportMs`. X-axis labels turn accent-orange when local zoom is active.
 public struct MultiLineChartWidget: View {
 
     let series: [MetricSeries]
     /// Plain `let` — NOT @ObservedObject. Only child `MultiLinePlayheadOverlay` subscribes.
     let playheadController: PlayheadController
     let viewportMs: ClosedRange<Double>
+
+    /// Local viewport override. `nil` = linked to global viewportMs (Layer 2).
+    @State private var localViewportMs: ClosedRange<Double>? = nil
+
+    private var effectiveViewport: ClosedRange<Double> { localViewportMs ?? viewportMs }
+    private var isLocalZoom: Bool { localViewportMs != nil }
 
     public init(
         series: [MetricSeries],
@@ -64,13 +80,31 @@ public struct MultiLineChartWidget: View {
     public var body: some View {
         MultiLineDataLayer(
             series: series,
-            viewportMs: viewportMs
+            viewportMs: effectiveViewport,
+            isLocalZoom: isLocalZoom
         )
         .overlay {
             // @ObservedObject lives here exclusively — widget parent NOT reactive at 60fps.
-            MultiLinePlayheadOverlay(playheadController: playheadController, viewportMs: viewportMs)
+            MultiLinePlayheadOverlay(playheadController: playheadController, viewportMs: effectiveViewport)
         }
         .background(Color(white: 0.10)) // Fixed dark background — app never follows system appearance
+        // Layer 3: local X-axis zoom. `.simultaneousGesture` so WidgetContainer drag is not blocked.
+        .simultaneousGesture(
+            MagnificationGesture()
+                .onChanged { value in
+                    let base = localViewportMs ?? viewportMs
+                    let globalSpan = viewportMs.upperBound - viewportMs.lowerBound
+                    localViewportMs = LocalZoomMath.applyXZoom(
+                        local: base,
+                        magnification: Double(value),
+                        globalSpan: globalSpan
+                    )
+                }
+        )
+        // Double-tap resets local zoom → re-links to global viewport.
+        .onTapGesture(count: 2) {
+            localViewportMs = nil
+        }
     }
 }
 
@@ -81,6 +115,8 @@ private struct MultiLineDataLayer: View, Equatable {
 
     let series: [MetricSeries]
     let viewportMs: ClosedRange<Double>
+    /// When true, X-axis labels render in accent-orange to signal local zoom is active.
+    let isLocalZoom: Bool
 
     // Dynamic target count = widget pixel width (1 point per pixel, min 200).
     @State private var chartWidth: CGFloat = 480
@@ -92,7 +128,8 @@ private struct MultiLineDataLayer: View, Equatable {
 
     nonisolated static func == (lhs: MultiLineDataLayer, rhs: MultiLineDataLayer) -> Bool {
         guard lhs.series.count == rhs.series.count,
-              lhs.viewportMs == rhs.viewportMs else { return false }
+              lhs.viewportMs == rhs.viewportMs,
+              lhs.isLocalZoom == rhs.isLocalZoom else { return false }
         for (l, r) in zip(lhs.series, rhs.series) {
             if l.timestamps.count != r.timestamps.count ||
                l.values.count != r.values.count ||
@@ -134,6 +171,9 @@ private struct MultiLineDataLayer: View, Equatable {
             }
             .overlay(alignment: .topLeading) {
                 multiLineAxisLabels(yMin: yMin, yMax: yMax)
+            }
+            .overlay {
+                multiLineXAxisLabels(viewportMs: viewportMs, isLocalZoom: isLocalZoom)
             }
 
             if !series.isEmpty {
@@ -219,6 +259,26 @@ private func multiLineAxisLabels(yMin: Float, yMax: Float) -> some View {
     }
 }
 
+/// X-axis viewport time labels. Color is accent-orange when local zoom is active.
+@ViewBuilder
+private func multiLineXAxisLabels(viewportMs: ClosedRange<Double>, isLocalZoom: Bool) -> some View {
+    let color: Color = isLocalZoom ? RDS.Colors.accent : .secondary
+    VStack {
+        Spacer()
+        HStack {
+            Text(multiLineFormatMs(viewportMs.lowerBound))
+                .font(.system(size: 8, design: .monospaced))
+                .foregroundStyle(color)
+                .padding([.bottom, .leading], 4)
+            Spacer()
+            Text(multiLineFormatMs(viewportMs.upperBound))
+                .font(.system(size: 8, design: .monospaced))
+                .foregroundStyle(color)
+                .padding([.bottom, .trailing], 4)
+        }
+    }
+}
+
 // MARK: - Shared helpers
 
 private func linXPos(t: Double, viewport: ClosedRange<Double>, width: CGFloat) -> CGFloat {
@@ -248,6 +308,14 @@ private func multiLineFormatValue(_ v: Float) -> String {
     if abs(v) >= 100 { return String(format: "%.0f", v) }
     if abs(v) >= 10  { return String(format: "%.1f", v) }
     return String(format: "%.2f", v)
+}
+
+/// Format milliseconds as M:SS for X-axis viewport labels.
+private func multiLineFormatMs(_ ms: Double) -> String {
+    let totalSec = Int(ms / 1000)
+    let m = totalSec / 60
+    let s = totalSec % 60
+    return String(format: "%d:%02d", m, s)
 }
 
 // MARK: - Default palette

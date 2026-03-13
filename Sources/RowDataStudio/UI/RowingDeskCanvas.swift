@@ -1,4 +1,4 @@
-// UI/RowingDeskCanvas.swift v2.1.0
+// UI/RowingDeskCanvas.swift v2.2.0
 /**
  * Infinite canvas for multi-widget analysis layout.
  *
@@ -12,6 +12,8 @@
  * - Playhead: `let` (not @ObservedObject). Child views observe it internally.
  *
  * --- Revision History ---
+ * v2.2.0 - 2026-03-13 - Magnetic snapping in commitMove via SnapEngine; snap guide overlay
+ *                        (Phase 8b.6: Magnetic Snapping).
  * v2.1.0 - 2026-03-12 - LineChart default → gps_gpmf_ts_speed (pure GPS, no fusion).
  *                        MultiLineChart default → ACCL-Y + inertial velocity from ACCL-Y
  *                        (bypasses fusion for comb-artifact investigation).
@@ -55,6 +57,12 @@ public struct RowingDeskCanvas: View {
     /// Debounce task for persisting widget mutations to disk.
     @State private var widgetSaveTask: Task<Void, Never>?
 
+    // ── Magnetic snapping ────────────────────────────────────────────────────
+    /// Active snap guide lines shown briefly after a widget drag ends with a snap.
+    @State private var snapGuides: [SnapGuide] = []
+    /// Task that clears `snapGuides` after a short delay.
+    @State private var snapGuideClearTask: Task<Void, Never>?
+
     // ── Convenience accessor (READ ONLY — never write through this) ─────────
     /// Returns the current canvas widget list. Does NOT trigger body re-evals by itself.
     private var widgets: [WidgetState] {
@@ -91,6 +99,21 @@ public struct RowingDeskCanvas: View {
                         onFocusSelection:   { toggleFocusMode() }
                     )
                     .equatable()
+
+                    // Snap guide overlay — accent dashed lines, auto-clears after 600ms
+                    if !snapGuides.isEmpty {
+                        Canvas { context, _ in
+                            for guide in snapGuides {
+                                var path = Path()
+                                path.move(to: guide.start)
+                                path.addLine(to: guide.end)
+                                context.stroke(path,
+                                               with: .color(RDS.Colors.accent.opacity(0.7)),
+                                               style: StrokeStyle(lineWidth: 1, dash: [4, 2]))
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
                 }
                 .scaleEffect(canvasZoom, anchor: .topLeading)
                 .offset(
@@ -155,9 +178,35 @@ public struct RowingDeskCanvas: View {
     }
 
     private func commitMove(id: UUID, to newPos: CGPoint) {
+        // Apply magnetic snap before committing position.
+        let snapped: CGPoint
+        let guides: [SnapGuide]
+        if let moving = widgets.first(where: { $0.id == id }) {
+            let draggingRect = CGRect(origin: newPos, size: moving.size)
+            let otherRects = widgets.filter { $0.id != id && $0.isVisible }
+                                    .map { CGRect(origin: $0.position, size: $0.size) }
+            (snapped, guides) = SnapEngine.snapPosition(
+                dragging: draggingRect,
+                others: otherRects,
+                threshold: RDS.Layout.snapThreshold
+            )
+        } else {
+            snapped = newPos
+            guides = []
+        }
+        // Show snap guides briefly then clear.
+        snapGuideClearTask?.cancel()
+        snapGuides = guides
+        if !guides.isEmpty {
+            snapGuideClearTask = Task {
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run { snapGuides = [] }
+            }
+        }
         mutateWidgets { widgets in
             if let i = widgets.firstIndex(where: { $0.id == id }) {
-                widgets[i].position = newPos
+                widgets[i].position = snapped
             }
         }
     }
