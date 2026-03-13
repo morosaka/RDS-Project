@@ -41,8 +41,8 @@ struct SessionDocumentTests {
             duration: 600.0,
             absoluteOrigin: Date(timeIntervalSince1970: 1709338200),
             tracks: [
-                TrackReference(sourceID: videoID, stream: .video, offset: 0.0),
-                TrackReference(sourceID: fitID, stream: .hr, offset: -2.3)
+                TimelineTrack(sourceID: videoID, stream: .video, offset: 0.0),
+                TimelineTrack(sourceID: fitID, stream: .hr, offset: -2.3)
             ]
         )
 

@@ -79,13 +79,13 @@ public struct Timeline: Codable, Sendable, Hashable {
     public var trimRange: ClosedRange<TimeInterval>?
 
     /// Timeline tracks (video, audio, sensor streams)
-    public var tracks: [TrackReference]
+    public var tracks: [TimelineTrack]
 
     public init(
         duration: TimeInterval,
         absoluteOrigin: Date? = nil,
         trimRange: ClosedRange<TimeInterval>? = nil,
-        tracks: [TrackReference] = []
+        tracks: [TimelineTrack] = []
     ) {
         self.duration = duration
         self.absoluteOrigin = absoluteOrigin
