@@ -1,4 +1,4 @@
-// UI/Timeline/TimelineView.swift v2.2.0
+// UI/Timeline/TimelineView.swift v2.3.0
 /**
  * Multi-track NLE timeline: ruler, track list from SessionDocument.timeline.tracks,
  * cue track, playhead, scrub drag, and viewport zoom.
@@ -8,7 +8,11 @@
  * Playhead renders in RDS.Colors.accent (orange) with a soft glow.
  * Shortcut M creates a cue at the current playhead position (macOS 14+).
  *
+ * **Zoom gesture fix (v2.3):** Clamp viewport center to prevent negative/inverted bounds
+ * when pinching to extreme scales. Ensures viewport always stays within [0, sessionDurationMs].
+ *
  * --- Revision History ---
+ * v2.3.0 - 2026-03-14 - Fix zoom gesture crash: clamp center to prevent negative bounds.
  * v2.2.0 - 2026-03-14 - Add CueTrackView at bottom, cue callbacks, shortcut M (Phase 8c.5).
  * v2.1.0 - 2026-03-14 - Add onSoloTrack + onOffsetTrack callbacks (Phase 8c.4).
  * v2.0.0 - 2026-03-14 - NLE redesign: model-driven track list, drag-to-reorder,
@@ -186,7 +190,9 @@ public struct TimelineView: View {
                 let maxDuration  = (sessionDocument?.timeline.duration ?? 60) * 1_000
                 let clamped      = min(max(newHalf * 2, minDuration), maxDuration)
                 let clampedHalf  = clamped / 2
-                viewportMs = (centerMs - clampedHalf)...(centerMs + clampedHalf)
+                // Clamp center to ensure viewport bounds stay within [0, maxDuration]
+                let clampedCenter = max(clampedHalf, min(maxDuration - clampedHalf, centerMs))
+                viewportMs = (clampedCenter - clampedHalf)...(clampedCenter + clampedHalf)
             }
     }
 }

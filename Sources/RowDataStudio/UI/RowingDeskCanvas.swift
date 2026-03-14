@@ -1,4 +1,4 @@
-// UI/RowingDeskCanvas.swift v2.4.0
+// UI/RowingDeskCanvas.swift v2.5.0
 /**
  * Infinite canvas for multi-widget analysis layout.
  *
@@ -12,6 +12,8 @@
  * - Playhead: `let` (not @ObservedObject). Child views observe it internally.
  *
  * --- Revision History ---
+ * v2.5.0 - 2026-03-14 - Integrate TimelineView at bottom of canvas layout; wire all track
+ *                        and cue callbacks to mutateSession (Bug fix: timeline not visible).
  * v2.4.0 - 2026-03-14 - Add AudioTrackWidget routing: .audio case in tracks(for:) and
  *                        widgetContent(for:) (Phase 8c.7: AudioTrackWidget).
  * v2.3.0 - 2026-03-13 - Widget↔Track lifecycle: mutateSession replaces mutateWidgets;
@@ -67,6 +69,11 @@ public struct RowingDeskCanvas: View {
     /// Debounce task for persisting widget mutations to disk.
     @State private var widgetSaveTask: Task<Void, Never>?
 
+    // ── Timeline viewport ─────────────────────────────────────────────────────
+    /// Visible time range in the NLE timeline (milliseconds).
+    /// Reset to full session range when a new session is loaded.
+    @State private var viewportMs: ClosedRange<Double> = 0...60_000
+
     // ── Magnetic snapping ────────────────────────────────────────────────────
     /// Active snap guide lines shown briefly after a widget drag ends with a snap.
     @State private var snapGuides: [SnapGuide] = []
@@ -84,6 +91,7 @@ public struct RowingDeskCanvas: View {
     // ─────────────────────────────────────────────────────────────────────────
 
     public var body: some View {
+        VStack(spacing: 0) {
         HStack(spacing: 0) {
             // ── Canvas area ──────────────────────────────────────────────────
             GeometryReader { geo in
@@ -171,13 +179,90 @@ public struct RowingDeskCanvas: View {
             .equatable()
             .frame(width: 260)
             .background(Color.gray.opacity(0.05))
-        }
+        }   // end HStack
+
+        // ── NLE Timeline ─────────────────────────────────────────────────────
+        Divider().background(Color(white: 0.12))
+
+        TimelineView(
+            playheadController: playheadController,
+            sessionDocument:    dataContext.sessionDocument,
+            viewportMs:         $viewportMs,
+            onMoveTracks: { source, destination in
+                mutateSession { doc in
+                    doc.timeline.tracks.move(fromOffsets: source, toOffset: destination)
+                }
+            },
+            onPinTrack: { id in
+                mutateSession { doc in
+                    if let i = doc.timeline.tracks.firstIndex(where: { $0.id == id }) {
+                        doc.timeline.tracks[i].isPinned.toggle()
+                    }
+                }
+            },
+            onMuteTrack: { id in
+                mutateSession { doc in
+                    if let i = doc.timeline.tracks.firstIndex(where: { $0.id == id }) {
+                        doc.timeline.tracks[i].isMuted.toggle()
+                    }
+                }
+            },
+            onSoloTrack: { id in
+                mutateSession { doc in
+                    doc.timeline.tracks.soloAudio(trackID: id)
+                }
+            },
+            onToggleTrackVisibility: { id in
+                mutateSession { doc in
+                    if let i = doc.timeline.tracks.firstIndex(where: { $0.id == id }) {
+                        doc.timeline.tracks[i].isVisible.toggle()
+                    }
+                }
+            },
+            onOffsetTrack: { id, delta in
+                mutateSession { doc in
+                    doc.timeline.tracks.applyOffset(delta, to: id)
+                }
+            },
+            onAddCue: {
+                let timeMs = playheadController.currentTimeMs
+                mutateSession { doc in
+                    let index = doc.cueMarkers.filter { $0.timeMs <= timeMs }.count + 1
+                    doc.cueMarkers.append(CueMarker(timeMs: timeMs, label: "Cue \(index)"))
+                }
+            },
+            onDeleteCue: { id in
+                mutateSession { doc in
+                    doc.cueMarkers.removeAll { $0.id == id }
+                }
+            },
+            onSeekToCue: { timeMs in
+                playheadController.seek(to: timeMs)
+            },
+            onRenameCue: { id, label in
+                mutateSession { doc in
+                    if let i = doc.cueMarkers.firstIndex(where: { $0.id == id }) {
+                        doc.cueMarkers[i].label = label
+                    }
+                }
+            }
+        )
+        .frame(height: 220)
+
+        }   // end VStack
         .onAppear {
             if let canvas = dataContext.sessionDocument?.canvas {
                 canvasZoom = canvas.zoomLevel
                 canvasPan  = canvas.panOffset
             }
+            if let dur = dataContext.sessionDocument?.timeline.duration, dur > 0 {
+                viewportMs = 0...(dur * 1_000)
+            }
             setupEventMonitor()
+        }
+        .onChange(of: dataContext.sessionDurationMs) { newDur in
+            guard newDur > 0 else { return }
+            viewportMs = 0...newDur
         }
         .onDisappear { teardownEventMonitor() }
     }

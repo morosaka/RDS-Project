@@ -1,4 +1,4 @@
-// Rendering/Widgets/AudioTrackWidget.swift v1.0.0
+// Rendering/Widgets/AudioTrackWidget.swift v1.1.0
 /**
  * Audio waveform widget for the infinite canvas.
  *
@@ -11,7 +11,11 @@
  *
  * When `waveformPeaks` is nil (sidecar not yet generated), a placeholder is shown.
  *
+ * **Local X-axis zoom (v1.1):** MagnificationGesture on waveform zooms the time axis
+ * independently. Double-tap resets zoom. Same pattern as LineChartWidget Layer 3.
+ *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-14 - Add local X-axis zoom via MagnificationGesture + double-tap reset.
  * v1.0.0 - 2026-03-14 - Initial implementation (Phase 8c.7).
  */
 
@@ -34,7 +38,7 @@ public struct AudioTrackWidget: View, AnalysisWidget {
     /// Pre-computed peak pyramid from the audio sidecar (nil until generated).
     let waveformPeaks: WaveformPeaks?
 
-    /// Visible time range in milliseconds — drives pyramid level selection.
+    /// Visible time range in milliseconds — drives pyramid level selection (global).
     let viewportMs: ClosedRange<Double>
 
     // MARK: - Local UI state (not persisted; resets on widget re-creation)
@@ -45,6 +49,14 @@ public struct AudioTrackWidget: View, AnalysisWidget {
     /// When true the waveform is rendered in a muted colour and the
     /// volume slider is disabled.
     @State private var isMuted: Bool = false
+
+    /// Local viewport override for X-axis zoom. `nil` = linked to global viewportMs.
+    /// Double-tap resets this to nil.
+    @State private var localViewportMs: ClosedRange<Double>? = nil
+
+    /// Effective viewport: uses local zoom if active, else global viewport.
+    private var effectiveViewportMs: ClosedRange<Double> { localViewportMs ?? viewportMs }
+    private var isLocalZoom: Bool { localViewportMs != nil }
 
     // MARK: - Layout constants
 
@@ -91,12 +103,29 @@ public struct AudioTrackWidget: View, AnalysisWidget {
                 playheadOverlay(width: geo.size.width, height: geo.size.height)
             }
         }
+        // Local X-axis zoom: MagnificationGesture changes local viewport independently.
+        .gesture(
+            MagnificationGesture()
+                .onChanged { value in
+                    let base = localViewportMs ?? viewportMs
+                    let globalSpan = viewportMs.upperBound - viewportMs.lowerBound
+                    localViewportMs = LocalZoomMath.applyXZoom(
+                        local: base,
+                        magnification: Double(value),
+                        globalSpan: globalSpan
+                    )
+                }
+        )
+        // Double-tap resets local zoom → re-links to global viewport.
+        .onTapGesture(count: 2) {
+            localViewportMs = nil
+        }
     }
 
     /// Renders peak bins as vertical lines using SwiftUI Canvas (GPU-composited).
     private func waveformCanvas(peaks: WaveformPeaks, size: CGSize) -> some View {
         Canvas { context, canvasSize in
-            let result   = peaks.peaksForViewport(viewportMs: viewportMs, widthPixels: Int(canvasSize.width))
+            let result   = peaks.peaksForViewport(viewportMs: effectiveViewportMs, widthPixels: Int(canvasSize.width))
             let slice    = result.peaks
             guard !slice.isEmpty else { return }
 
@@ -139,10 +168,10 @@ public struct AudioTrackWidget: View, AnalysisWidget {
 
     @ViewBuilder
     private func playheadOverlay(width: CGFloat, height: CGFloat) -> some View {
-        let durationMs = viewportMs.upperBound - viewportMs.lowerBound
+        let durationMs = effectiveViewportMs.upperBound - effectiveViewportMs.lowerBound
         if durationMs > 0 {
             let t          = playheadController.currentTimeMs
-            let normalized = (t - viewportMs.lowerBound) / durationMs
+            let normalized = (t - effectiveViewportMs.lowerBound) / durationMs
             if normalized >= 0 && normalized <= 1 {
                 let x = CGFloat(normalized) * width
                 Rectangle()
