@@ -255,9 +255,18 @@ public struct RowingDeskCanvas: View {
                 canvasZoom = canvas.zoomLevel
                 canvasPan  = canvas.panOffset
             }
-            if let dur = dataContext.sessionDocument?.timeline.duration, dur > 0 {
-                viewportMs = 0...(dur * 1_000)
+            // Prefer sessionDurationMs (set by FileImportHelper pipeline, always in ms).
+            // sessionDocument.timeline.duration may be 0 for sessions created before
+            // FileImportHelper writes back to the document; sessionDurationMs is reliable.
+            let durMs: Double
+            if dataContext.sessionDurationMs > 0 {
+                durMs = dataContext.sessionDurationMs
+            } else if let dur = dataContext.sessionDocument?.timeline.duration, dur > 0 {
+                durMs = dur * 1_000
+            } else {
+                durMs = 0
             }
+            if durMs > 0 { viewportMs = 0...durMs }
             setupEventMonitor()
         }
         .onChange(of: dataContext.sessionDurationMs) { newDur in

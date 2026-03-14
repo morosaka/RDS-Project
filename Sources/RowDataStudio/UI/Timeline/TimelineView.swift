@@ -1,4 +1,4 @@
-// UI/Timeline/TimelineView.swift v2.3.0
+// UI/Timeline/TimelineView.swift v2.4.0
 /**
  * Multi-track NLE timeline: ruler, track list from SessionDocument.timeline.tracks,
  * cue track, playhead, scrub drag, and viewport zoom.
@@ -8,10 +8,14 @@
  * Playhead renders in RDS.Colors.accent (orange) with a soft glow.
  * Shortcut M creates a cue at the current playhead position (macOS 14+).
  *
- * **Zoom gesture fix (v2.3):** Clamp viewport center to prevent negative/inverted bounds
- * when pinching to extreme scales. Ensures viewport always stays within [0, sessionDurationMs].
+ * **Zoom gesture fix (v2.4):** MagnificationGesture.onChanged fires with CUMULATIVE scale
+ * from gesture start. Applying it to an already-mutated viewportMs on every call causes
+ * exponential zoom compounding, eventually crashing (Range requires lowerBound <= upperBound).
+ * Fix: capture viewportMs snapshot at gesture start via @GestureState; always apply
+ * cumulative scale to that snapshot instead of the live-mutated state.
  *
  * --- Revision History ---
+ * v2.4.0 - 2026-03-14 - Fix zoom compounding crash: @GestureState base viewport snapshot.
  * v2.3.0 - 2026-03-14 - Fix zoom gesture crash: clamp center to prevent negative bounds.
  * v2.2.0 - 2026-03-14 - Add CueTrackView at bottom, cue callbacks, shortcut M (Phase 8c.5).
  * v2.1.0 - 2026-03-14 - Add onSoloTrack + onOffsetTrack callbacks (Phase 8c.4).
@@ -180,17 +184,29 @@ public struct TimelineView: View {
 
     // MARK: - Zoom gesture
 
+    /// Snapshot of viewportMs at the moment the magnification gesture begins.
+    /// @GestureState resets to nil automatically when the gesture ends.
+    /// We apply the cumulative scale to this snapshot (not to the live-mutated viewportMs)
+    /// to prevent exponential compounding that crashes with invalid ClosedRange bounds.
+    @GestureState private var zoomBaseViewport: ClosedRange<Double>? = nil
+
     private var zoomGesture: some Gesture {
         MagnificationGesture()
+            .updating($zoomBaseViewport) { _, state, _ in
+                // Capture once on first onChanged; subsequent calls see non-nil state and skip.
+                if state == nil { state = viewportMs }
+            }
             .onChanged { scale in
-                let centerMs     = (viewportMs.lowerBound + viewportMs.upperBound) / 2
-                let halfDuration = (viewportMs.upperBound - viewportMs.lowerBound) / 2
+                // Always zoom relative to the gesture-start snapshot, not the running viewportMs.
+                let base         = zoomBaseViewport ?? viewportMs
+                let centerMs     = (base.lowerBound + base.upperBound) / 2
+                let halfDuration = (base.upperBound - base.lowerBound) / 2
                 let newHalf      = halfDuration / scale
                 let minDuration  = 5_000.0
-                let maxDuration  = (sessionDocument?.timeline.duration ?? 60) * 1_000
+                // Guard maxDuration >= minDuration to avoid degenerate clamping on empty sessions.
+                let maxDuration  = max(minDuration, (sessionDocument?.timeline.duration ?? 60) * 1_000)
                 let clamped      = min(max(newHalf * 2, minDuration), maxDuration)
                 let clampedHalf  = clamped / 2
-                // Clamp center to ensure viewport bounds stay within [0, maxDuration]
                 let clampedCenter = max(clampedHalf, min(maxDuration - clampedHalf, centerMs))
                 viewportMs = (clampedCenter - clampedHalf)...(clampedCenter + clampedHalf)
             }
