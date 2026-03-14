@@ -1,6 +1,6 @@
 // Tests/RowDataStudioTests/Rendering/Widgets/AudioTrackWidgetTests.swift
 /**
- * Unit tests for AudioTrackWidget (Phase 8c.7).
+ * Unit tests for AudioTrackWidget (Phase 8c.7) and DataContext waveform wiring (Phase 8c).
  *
  * Tests cover:
  * - WidgetType.audio enum metadata
@@ -133,5 +133,51 @@ struct AudioTrackWidgetTests {
         // 480px for 5 s → samplesPerPixel = 500; L0 (256) ≤ 500 → picks L0 or coarser
         let result  = peaks.peaksForViewport(viewportMs: 0...5_000, widthPixels: 480)
         #expect(!result.peaks.isEmpty)
+    }
+}
+
+// MARK: - DataContext waveform wiring
+
+@Suite("DataContext waveformPeaks")
+struct DataContextWaveformTests {
+
+    @Test("waveformPeaks is nil by default")
+    @MainActor
+    func waveformPeaksDefaultNil() {
+        let ctx = DataContext()
+        #expect(ctx.waveformPeaks == nil)
+    }
+
+    @Test("waveformPeaks can be set and read back")
+    @MainActor
+    func waveformPeaksRoundTrip() {
+        let ctx    = DataContext()
+        let samples = ContiguousArray<Float>(repeating: 0.5, count: 1_024)
+        let peaks  = WaveformGenerator.build(from: samples, sampleRate: 48_000)
+        ctx.waveformPeaks = peaks
+        #expect(ctx.waveformPeaks?.sampleRate   == 48_000)
+        #expect(ctx.waveformPeaks?.totalSamples == 1_024)
+    }
+
+    @Test("waveformPeaks can be reset to nil")
+    @MainActor
+    func waveformPeaksResetNil() {
+        let ctx    = DataContext()
+        let samples = ContiguousArray<Float>(repeating: 0.5, count: 256)
+        ctx.waveformPeaks = WaveformGenerator.build(from: samples, sampleRate: 48_000)
+        ctx.waveformPeaks = nil
+        #expect(ctx.waveformPeaks == nil)
+    }
+
+    @Test("sidecarURL construction: basename + .waveform.gz extension")
+    func sidecarURLConstruction() {
+        // Mirror the URL construction used in FileImportHelper.process
+        let videoURL   = URL(fileURLWithPath: "/sessions/GX010123.MP4")
+        let outputDir  = videoURL.deletingLastPathComponent()
+        let sidecarURL = outputDir
+            .appendingPathComponent(videoURL.deletingPathExtension().lastPathComponent)
+            .appendingPathExtension("waveform.gz")
+        #expect(sidecarURL.lastPathComponent == "GX010123.waveform.gz")
+        #expect(sidecarURL.deletingLastPathComponent().path == "/sessions")
     }
 }

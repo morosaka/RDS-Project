@@ -1,8 +1,10 @@
-// UI/FileImportHelper.swift v1.0.0
+// UI/FileImportHelper.swift v1.1.0
 /**
  * Async orchestrator: file import → GPMF/FIT parse → sync → fusion → DataContext.
  * Runs heavy work on a detached task; updates DataContext on @MainActor.
  * --- Revision History ---
+ * v1.1.0 - 2026-03-14 - Wire waveform peaks into DataContext: load existing sidecar
+ *                        immediately, then update after background generation (Phase 8c).
  * v1.0.0 - 2026-03-07 - Initial implementation (Phase 4: Rendering + MVP).
  */
 
@@ -63,11 +65,23 @@ public enum FileImportHelper {
         dataContext.sessionDurationMs = durationMs
         playhead.duration = durationMs
 
-        // Fire-and-forget waveform sidecar generation (parallel, non-blocking).
-        // Writes {videoBasename}.waveform.gz alongside the MP4.
-        let outputDir = videoURL.deletingLastPathComponent()
+        // Waveform sidecar: load existing immediately (fast path for re-opened sessions),
+        // then generate/regenerate in background and update DataContext when done.
+        let outputDir  = videoURL.deletingLastPathComponent()
+        let sidecarURL = outputDir
+            .appendingPathComponent(videoURL.deletingPathExtension().lastPathComponent)
+            .appendingPathExtension("waveform.gz")
+
+        // Fast path: sidecar already present from a previous import.
+        if let existingPeaks = try? WaveformGenerator.load(from: sidecarURL) {
+            dataContext.waveformPeaks = existingPeaks
+        }
+
+        // Background path: generate (or regenerate) the sidecar; update DataContext when ready.
         Task.detached(priority: .background) {
-            _ = try? await WaveformGenerator.generate(from: videoURL, outputDir: outputDir)
+            guard let url   = try? await WaveformGenerator.generate(from: videoURL, outputDir: outputDir),
+                  let peaks = try? WaveformGenerator.load(from: url) else { return }
+            await MainActor.run { dataContext.waveformPeaks = peaks }
         }
     }
 

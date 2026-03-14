@@ -1,8 +1,9 @@
-// Rendering/DataContext.swift v1.3.0
+// Rendering/DataContext.swift v1.4.0
 /**
  * Shared observable data reference for rendering widgets.
  * Holds the processed session buffers, fusion result, and active SessionDocument.
  * --- Revision History ---
+ * v1.4.0 - 2026-03-14 - Add waveformPeaks for AudioTrackWidget (Phase 8c DataContext wiring).
  * v1.3.0 - 2026-03-12 - Default metric → gps_gpmf_ts_speed; add imu_raw_ts_vel_inertial
  *                        computed channel (trapezoidal integration of raw ACCL-Y at 200 Hz).
  * v1.2.0 - 2026-03-08 - Add sessionDocument for Phase 6 canvas integration.
@@ -38,6 +39,11 @@ public final class DataContext: ObservableObject {
 
     /// Total session duration in milliseconds. Derived from last valid timestamp.
     @Published public var sessionDurationMs: Double = 0
+
+    /// Multi-resolution waveform peak pyramid for the primary audio track.
+    /// Populated by `FileImportHelper` after the `.waveform.gz` sidecar is loaded.
+    /// `nil` until the sidecar exists and has been decoded.
+    @Published public var waveformPeaks: WaveformPeaks?
 
     // MARK: - Display State
 

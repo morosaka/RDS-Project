@@ -66,9 +66,9 @@ public struct VideoWidget: View {
             )
         }
         .task {
-            // Mute AVPlayer: audio separation — AudioTrackWidget owns audio rendering.
-            // AVFoundation still decodes audio internally for A/V sync accuracy.
-            syncController.player.isMuted = true
+            // NOTE: player is NOT muted here. AudioTrackWidget provides the waveform
+            // visualisation and volume controls, but actual audio output comes from
+            // this AVPlayer until a dedicated AVAudioPlayerNode path is added (post-MVP).
             syncController.bind(to: playheadController)
         }
         .onDisappear {

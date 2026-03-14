@@ -58,6 +58,10 @@ public struct RowingDeskCanvas: View {
     @State private var canvasPan: CGPoint = .zero
     /// Live drag delta (in-flight only; discarded after gesture ends).
     @GestureState private var livePanDelta = CGSize.zero
+    /// Live pinch scale multiplier (in-flight only; discarded after gesture ends).
+    /// Multiplied with `canvasZoom` in scaleEffect so child widgets can intercept
+    /// the gesture before the canvas does (SwiftUI child-gesture priority).
+    @GestureState private var liveZoomScale: Double = 1.0
     /// Debounce task for persisting zoom/pan to model.
     @State private var positionSaveTask: Task<Void, Never>?
     /// Debounce task for persisting widget mutations to disk.
@@ -121,7 +125,7 @@ public struct RowingDeskCanvas: View {
                         .allowsHitTesting(false)
                     }
                 }
-                .scaleEffect(canvasZoom, anchor: .topLeading)
+                .scaleEffect(canvasZoom * liveZoomScale, anchor: .topLeading)
                 .offset(
                     x: canvasPan.x + livePanDelta.width,
                     y: canvasPan.y + livePanDelta.height
@@ -136,6 +140,20 @@ public struct RowingDeskCanvas: View {
                                 x: canvasPan.x + value.translation.width,
                                 y: canvasPan.y + value.translation.height
                             )
+                            schedulePositionSave()
+                        }
+                )
+                // Canvas pinch-to-zoom. SwiftUI child-gesture priority means a widget's own
+                // MagnificationGesture (e.g. LineChartWidget X-axis zoom) fires first when the
+                // user pinches over that widget; this gesture fires on the canvas background.
+                .gesture(
+                    MagnificationGesture()
+                        .updating($liveZoomScale) { value, state, _ in
+                            state = value
+                        }
+                        .onEnded { value in
+                            canvasZoom = max(RDS.Layout.canvasZoomMin,
+                                             min(RDS.Layout.canvasZoomMax, canvasZoom * value))
                             schedulePositionSave()
                         }
                 )
@@ -324,24 +342,16 @@ public struct RowingDeskCanvas: View {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // MARK: - NSEvent monitor (zoom + spacebar + F + Esc)
+    // MARK: - NSEvent monitor (spacebar + F + Esc)
+    // Canvas pinch-to-zoom is now handled by the SwiftUI MagnificationGesture
+    // on the canvas ZStack, so .magnify events are NOT consumed here. This allows
+    // child widget gestures (e.g. LineChartWidget X-axis zoom) to fire first.
     // ─────────────────────────────────────────────────────────────────────────
 
     private func setupEventMonitor() {
         let pc = playheadController
-        // NOTE: We need to capture zoom/pan as mutable @State. We do this via MainActor closures.
-        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.magnify, .keyDown]) { [self] event in
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [self] event in
             switch event.type {
-            case .magnify:
-                // Update @State directly on MainActor — no sessionDocument write during gesture.
-                let factor = 1.0 + event.magnification
-                Task { @MainActor in
-                    canvasZoom = max(RDS.Layout.canvasZoomMin,
-                                     min(RDS.Layout.canvasZoomMax, canvasZoom * factor))
-                    schedulePositionSave()
-                }
-                return nil
-
             case .keyDown where event.keyCode == 49:  // Space
                 if pc.isPlaying { pc.pause() } else { pc.play() }
                 return nil
@@ -625,12 +635,12 @@ private struct CanvasWidgetLayer: View, Equatable {
             VideoWidget(url: videoURL, timeOffsetMs: offsetMs, playheadController: playheadController)
 
         case .audio:
-            // waveformPeaks wiring is deferred to 8c.8 (DataContext integration).
-            // Widget renders a placeholder until the sidecar is loaded.
+            // Peaks are loaded by FileImportHelper into dataContext.waveformPeaks.
+            // Shows placeholder until the .waveform.gz sidecar is generated and loaded.
             AudioTrackWidget(state: widget,
                              dataContext: dataContext,
                              playheadController: playheadController,
-                             waveformPeaks: nil,
+                             waveformPeaks: dataContext.waveformPeaks,
                              viewportMs: viewport)
 
         case .none:
