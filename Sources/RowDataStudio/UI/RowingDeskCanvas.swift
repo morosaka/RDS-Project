@@ -1,4 +1,4 @@
-// UI/RowingDeskCanvas.swift v2.3.0
+// UI/RowingDeskCanvas.swift v2.4.0
 /**
  * Infinite canvas for multi-widget analysis layout.
  *
@@ -12,6 +12,8 @@
  * - Playhead: `let` (not @ObservedObject). Child views observe it internally.
  *
  * --- Revision History ---
+ * v2.4.0 - 2026-03-14 - Add AudioTrackWidget routing: .audio case in tracks(for:) and
+ *                        widgetContent(for:) (Phase 8c.7: AudioTrackWidget).
  * v2.3.0 - 2026-03-13 - Widget↔Track lifecycle: mutateSession replaces mutateWidgets;
  *                        addWidget creates TimelineTrack entries; deleteWidget removes
  *                        non-pinned linked tracks. streamType(for:) + tracks(for:)
@@ -458,6 +460,8 @@ public struct RowingDeskCanvas: View {
             }
         case .empowerRadar, .metricCard:
             return []   // Derived / per-stroke KPI — no timeline track
+        case .audio:
+            return [.virtual(stream: .audio, linkedWidgetID: widget.id, displayName: "Audio")]
         }
     }
 
@@ -619,6 +623,15 @@ private struct CanvasWidgetLayer: View, Equatable {
             }()
             let offsetMs = widget.configuration["timeOffsetMs"]?.value as? Double ?? 0.0
             VideoWidget(url: videoURL, timeOffsetMs: offsetMs, playheadController: playheadController)
+
+        case .audio:
+            // waveformPeaks wiring is deferred to 8c.8 (DataContext integration).
+            // Widget renders a placeholder until the sidecar is loaded.
+            AudioTrackWidget(state: widget,
+                             dataContext: dataContext,
+                             playheadController: playheadController,
+                             waveformPeaks: nil,
+                             viewportMs: viewport)
 
         case .none:
             VStack {

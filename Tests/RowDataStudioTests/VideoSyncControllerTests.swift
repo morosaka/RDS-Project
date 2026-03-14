@@ -107,4 +107,19 @@ struct VideoSyncControllerTests {
         let controller2 = VideoSyncController(url: nil, timeOffsetMs: 500)
         #expect(controller1.player !== controller2.player)
     }
+
+    // MARK: - Phase 8c.8: Audio stripping
+
+    @Test("player.isMuted is false by default (muting applied by VideoWidget.task, not controller)")
+    func playerMutedDefaultFalse() {
+        let controller = VideoSyncController(url: nil)
+        #expect(controller.player.isMuted == false)
+    }
+
+    @Test("player.isMuted API is writable (VideoWidget can mute on task start)")
+    func playerMutedApiWritable() {
+        let controller = VideoSyncController(url: nil)
+        controller.player.isMuted = true
+        #expect(controller.player.isMuted == true)
+    }
 }

@@ -12,9 +12,9 @@ import Foundation
 @Suite("WidgetType")
 struct WidgetTypeTests {
 
-    @Test("All 7 widget types exist")
+    @Test("All 8 widget types exist")
     func allCasesCount() {
-        #expect(WidgetType.allCases.count == 7)
+        #expect(WidgetType.allCases.count == 8)
     }
 
     @Test("Raw values match expected strings")
@@ -26,6 +26,7 @@ struct WidgetTypeTests {
         #expect(WidgetType.map.rawValue            == "map")
         #expect(WidgetType.empowerRadar.rawValue   == "empowerRadar")
         #expect(WidgetType.video.rawValue          == "video")
+        #expect(WidgetType.audio.rawValue          == "audio")
     }
 
     @Test("Display names are non-empty")

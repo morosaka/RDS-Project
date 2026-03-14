@@ -1,8 +1,10 @@
-// Rendering/Widgets/VideoWidget.swift v1.2.0
+// Rendering/Widgets/VideoWidget.swift v1.3.0
 /**
- * Canvas widget for synchronized video playback.
- * Owns a VideoSyncController bound to the shared PlayheadController.
- * Displays video frame, buffering spinner, and playback controls.
+ * Canvas widget for synchronized video playback (video-only; audio is handled
+ * by AudioTrackWidget via the .waveform.gz sidecar).
+ *
+ * The AVPlayer is muted at task start — audio decoding continues internally
+ * (needed for A/V sync), but no audio is emitted from this widget.
  *
  * **Architecture (v1.2):**
  * - `playheadController` is a plain `let` — VideoWidget body NOT reactive at 60fps.
@@ -10,6 +12,7 @@
  *   only the control strip (slider + time label) redraws at 60fps.
  *
  * --- Revision History ---
+ * v1.3.0 - 2026-03-14 - Mute AVPlayer by default (Phase 8c.8: Video/Audio separation).
  * v1.2.0 - 2026-03-12 - Demote @ObservedObject to let; controls extracted to VideoControlsView.
  * v1.1.0 - 2026-03-08 - VideoSyncController bound to PlayheadController.
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 7).
@@ -63,6 +66,9 @@ public struct VideoWidget: View {
             )
         }
         .task {
+            // Mute AVPlayer: audio separation — AudioTrackWidget owns audio rendering.
+            // AVFoundation still decodes audio internally for A/V sync accuracy.
+            syncController.player.isMuted = true
             syncController.bind(to: playheadController)
         }
         .onDisappear {

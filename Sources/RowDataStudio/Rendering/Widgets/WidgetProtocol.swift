@@ -1,4 +1,4 @@
-// Rendering/Widgets/WidgetProtocol.swift v1.1.0
+// Rendering/Widgets/WidgetProtocol.swift v1.2.0
 /**
  * Protocol and type extensions for analysis widgets.
  *
@@ -10,6 +10,7 @@
  * This file adds the Phase 6 rendering layer on top.
  *
  * --- Revision History ---
+ * v1.2.0 - 2026-03-14 - Add WidgetType.audio (Phase 8c.7: AudioTrackWidget).
  * v1.1.0 - 2026-03-08 - Remove WidgetConfig (duplicate of WidgetState); add WidgetType + WidgetState extension.
  * v1.0.0 - 2026-03-08 - Initial scaffolding (Phase 6: Canvas & Widgets).
  */
@@ -29,6 +30,7 @@ public enum WidgetType: String, Codable, Sendable, Hashable, CaseIterable {
     case map             = "map"
     case empowerRadar    = "empowerRadar"
     case video           = "video"
+    case audio           = "audio"
 
     public var displayName: String {
         switch self {
@@ -39,6 +41,7 @@ public enum WidgetType: String, Codable, Sendable, Hashable, CaseIterable {
         case .map:             return "GPS Track"
         case .empowerRadar:    return "Empower Radar"
         case .video:           return "Video Player"
+        case .audio:           return "Audio Track"
         }
     }
 
@@ -51,6 +54,7 @@ public enum WidgetType: String, Codable, Sendable, Hashable, CaseIterable {
         case .map:             return "map"
         case .empowerRadar:    return "dot.radiowaves.left.and.right"
         case .video:           return "video.fill"
+        case .audio:           return "waveform"
         }
     }
 
@@ -63,6 +67,7 @@ public enum WidgetType: String, Codable, Sendable, Hashable, CaseIterable {
         case .map:                         return CGSize(width: 400, height: 400)
         case .empowerRadar:                return CGSize(width: 320, height: 320)
         case .video:                       return CGSize(width: 560, height: 360)
+        case .audio:                       return CGSize(width: 480, height: 100)
         }
     }
 }
