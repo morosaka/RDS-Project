@@ -5,8 +5,9 @@
 // Central session container: metadata, sources, timeline, sync state, canvas.
 // The fundamental work unit. Persisted as JSON.
 //
-// Version: 1.0.0 (2026-03-01)
+// Version: 1.1.0 (2026-03-14)
 // Revision History:
+//   2026-03-14: Add cueMarkers with backward-compat custom decoder (Phase 8c.5).
 //   2026-03-01: Initial implementation (Phase 1: Data Models)
 //
 // Source: docs/architecture/data-models.md §SessionDocument
@@ -176,6 +177,9 @@ public struct SessionDocument: Codable, Sendable {
     /// Synchronization state
     public var syncState: SyncState
 
+    /// Cue/bookmark markers on the timeline (user-created via M shortcut or + button).
+    public var cueMarkers: [CueMarker]
+
     /// Document version (for future migration)
     public var version: Int
 
@@ -191,6 +195,7 @@ public struct SessionDocument: Codable, Sendable {
         empowerData: NKEmpowerSession? = nil,
         empowerSyncOffset: TimeInterval? = nil,
         syncState: SyncState = SyncState(),
+        cueMarkers: [CueMarker] = [],
         version: Int = 1,
         modifiedAt: Date = Date()
     ) {
@@ -202,8 +207,26 @@ public struct SessionDocument: Codable, Sendable {
         self.empowerData = empowerData
         self.empowerSyncOffset = empowerSyncOffset
         self.syncState = syncState
+        self.cueMarkers = cueMarkers
         self.version = version
         self.modifiedAt = modifiedAt
+    }
+
+    // Custom decoder: cueMarkers uses decodeIfPresent for backward compatibility
+    // with documents saved before Phase 8c.5 (key absent → empty array).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        metadata          = try c.decode(SessionMetadata.self,        forKey: .metadata)
+        sources           = try c.decode([DataSource].self,           forKey: .sources)
+        timeline          = try c.decode(Timeline.self,               forKey: .timeline)
+        regions           = try c.decode([ROI].self,                  forKey: .regions)
+        canvas            = try c.decode(CanvasState.self,            forKey: .canvas)
+        empowerData       = try c.decodeIfPresent(NKEmpowerSession.self,  forKey: .empowerData)
+        empowerSyncOffset = try c.decodeIfPresent(TimeInterval.self,      forKey: .empowerSyncOffset)
+        syncState         = try c.decode(SyncState.self,              forKey: .syncState)
+        cueMarkers        = try c.decodeIfPresent([CueMarker].self,   forKey: .cueMarkers) ?? []
+        version           = try c.decode(Int.self,                    forKey: .version)
+        modifiedAt        = try c.decode(Date.self,                   forKey: .modifiedAt)
     }
 }
 

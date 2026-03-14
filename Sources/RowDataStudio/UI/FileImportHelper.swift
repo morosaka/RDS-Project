@@ -62,6 +62,13 @@ public enum FileImportHelper {
         dataContext.fusionResult = fusionResult
         dataContext.sessionDurationMs = durationMs
         playhead.duration = durationMs
+
+        // Fire-and-forget waveform sidecar generation (parallel, non-blocking).
+        // Writes {videoBasename}.waveform.gz alongside the MP4.
+        let outputDir = videoURL.deletingLastPathComponent()
+        Task.detached(priority: .background) {
+            _ = try? await WaveformGenerator.generate(from: videoURL, outputDir: outputDir)
+        }
     }
 
     // MARK: - Background Pipeline

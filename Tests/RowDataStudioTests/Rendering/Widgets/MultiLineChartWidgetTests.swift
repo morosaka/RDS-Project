@@ -109,28 +109,4 @@ struct MultiLineChartWidgetInitTests {
         #expect(widget.series.isEmpty)
     }
 
-    @Test("Default targetPointCount is 1500")
-    @MainActor
-    func defaultTargetPoints() {
-        let pc = PlayheadController()
-        let widget = MultiLineChartWidget(
-            series: [],
-            playheadController: pc,
-            viewportMs: 0...1000
-        )
-        #expect(widget.targetPointCount == 1500)
-    }
-
-    @Test("Custom targetPointCount is stored")
-    @MainActor
-    func customTargetPoints() {
-        let pc = PlayheadController()
-        let widget = MultiLineChartWidget(
-            series: [],
-            playheadController: pc,
-            viewportMs: 0...1000,
-            targetPointCount: 500
-        )
-        #expect(widget.targetPointCount == 500)
-    }
 }

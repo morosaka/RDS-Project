@@ -1,9 +1,10 @@
-// UI/DesignSystem/DesignTokens.swift v1.0.0
+// UI/DesignSystem/DesignTokens.swift v1.1.0
 /**
  * RowData Studio Design System tokens.
  * Source of truth per tutti i valori visual.
  *
  * --- Revision History ---
+ * v1.1.0 - 2026-03-14 - Add StreamType.symbolName for timeline track icons (Phase 8c.3).
  * v1.0.0 - 2026-03-11 - Initial implementation (Phase 8a.1).
  */
 
@@ -102,6 +103,28 @@ extension StreamType {
         case .temperature:             return RDS.MetricColors.imu
         case .fusedVelocity:           return RDS.MetricColors.speed
         case .fusedPitch, .fusedRoll:  return RDS.MetricColors.imu
+        }
+    }
+
+    /// SF Symbol name for timeline track header icon.
+    public var symbolName: String {
+        switch self {
+        case .video:                    return "video.fill"
+        case .audio:                    return "waveform"
+        case .gps:                      return "location.fill"
+        case .accl:                     return "move.3d"
+        case .gyro:                     return "rotate.3d"
+        case .grav, .cori:              return "gyroscope"
+        case .speed, .fusedVelocity:    return "speedometer"
+        case .hr:                       return "heart.fill"
+        case .cadence:                  return "metronome.fill"
+        case .power:                    return "bolt.fill"
+        case .temperature:              return "thermometer.medium"
+        case .force:                    return "arrow.up.right"
+        case .angle:                    return "angle"
+        case .work:                     return "chart.bar.fill"
+        case .fusedPitch:               return "arrow.up.and.down.circle"
+        case .fusedRoll:                return "arrow.left.and.right.circle"
         }
     }
 }

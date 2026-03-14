@@ -1,135 +1,210 @@
-// UI/Timeline/TimelineView.swift v1.0.0
+// UI/Timeline/TimelineView.swift v2.2.0
 /**
- * Multi-track timeline display with ruler, data source tracks, and playhead.
- * Supports scrubbing via drag on ruler and zoom via MagnificationGesture.
+ * Multi-track NLE timeline: ruler, track list from SessionDocument.timeline.tracks,
+ * cue track, playhead, scrub drag, and viewport zoom.
+ *
+ * Track iteration is model-driven (doc.timeline.tracks), not source-driven.
+ * Drag-to-reorder mutates track order via the `onMoveTracks` callback.
+ * Playhead renders in RDS.Colors.accent (orange) with a soft glow.
+ * Shortcut M creates a cue at the current playhead position (macOS 14+).
  *
  * --- Revision History ---
+ * v2.2.0 - 2026-03-14 - Add CueTrackView at bottom, cue callbacks, shortcut M (Phase 8c.5).
+ * v2.1.0 - 2026-03-14 - Add onSoloTrack + onOffsetTrack callbacks (Phase 8c.4).
+ * v2.0.0 - 2026-03-14 - NLE redesign: model-driven track list, drag-to-reorder,
+ *                        orange playhead with glow, track action callbacks (Phase 8c.3).
  * v1.0.0 - 2026-03-08 - Initial implementation (Phase 7).
  */
 
 import SwiftUI
 
 public struct TimelineView: View {
+
+    // MARK: - Input
+
     @ObservedObject var playheadController: PlayheadController
     let sessionDocument: SessionDocument?
     @Binding var viewportMs: ClosedRange<Double>
 
-    @GestureState private var magnificationState: CGFloat = 1.0
+    // Track callbacks
+    let onMoveTracks: ((IndexSet, Int) -> Void)?
+    let onPinTrack: ((UUID) -> Void)?
+    let onMuteTrack: ((UUID) -> Void)?
+    let onSoloTrack: ((UUID) -> Void)?
+    let onToggleTrackVisibility: ((UUID) -> Void)?
+    let onOffsetTrack: ((UUID, TimeInterval) -> Void)?
+
+    // Cue callbacks
+    let onAddCue: (() -> Void)?
+    let onDeleteCue: ((UUID) -> Void)?
+    let onSeekToCue: ((Double) -> Void)?
+    let onRenameCue: ((UUID, String) -> Void)?
+
+    // MARK: - Init
 
     public init(
         playheadController: PlayheadController,
         sessionDocument: SessionDocument?,
-        viewportMs: Binding<ClosedRange<Double>>
+        viewportMs: Binding<ClosedRange<Double>>,
+        onMoveTracks: ((IndexSet, Int) -> Void)? = nil,
+        onPinTrack: ((UUID) -> Void)? = nil,
+        onMuteTrack: ((UUID) -> Void)? = nil,
+        onSoloTrack: ((UUID) -> Void)? = nil,
+        onToggleTrackVisibility: ((UUID) -> Void)? = nil,
+        onOffsetTrack: ((UUID, TimeInterval) -> Void)? = nil,
+        onAddCue: (() -> Void)? = nil,
+        onDeleteCue: ((UUID) -> Void)? = nil,
+        onSeekToCue: ((Double) -> Void)? = nil,
+        onRenameCue: ((UUID, String) -> Void)? = nil
     ) {
         self.playheadController = playheadController
         self.sessionDocument = sessionDocument
         self._viewportMs = viewportMs
+        self.onMoveTracks = onMoveTracks
+        self.onPinTrack = onPinTrack
+        self.onMuteTrack = onMuteTrack
+        self.onSoloTrack = onSoloTrack
+        self.onToggleTrackVisibility = onToggleTrackVisibility
+        self.onOffsetTrack = onOffsetTrack
+        self.onAddCue = onAddCue
+        self.onDeleteCue = onDeleteCue
+        self.onSeekToCue = onSeekToCue
+        self.onRenameCue = onRenameCue
     }
+
+    // MARK: - Body
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Timeline ruler with scrub drag gesture
+            // Ruler with scrub drag
             GeometryReader { geo in
+                let contentWidth = geo.size.width - 80
+
                 TimelineRuler(
                     viewportMs: viewportMs,
-                    width: geo.size.width - 80
+                    width: contentWidth
                 )
                 .gesture(
                     DragGesture()
                         .onChanged { drag in
-                            let offsetPx = drag.location.x
-                            let durationMs = viewportMs.upperBound - viewportMs.lowerBound
-                            let normalizedX = offsetPx / (geo.size.width - 80)
-                            let timeMs = viewportMs.lowerBound + normalizedX * durationMs
+                            let normalizedX = drag.location.x / contentWidth
+                            let durationMs  = viewportMs.upperBound - viewportMs.lowerBound
+                            let timeMs      = viewportMs.lowerBound + normalizedX * durationMs
                             playheadController.seek(to: timeMs)
                         }
                 )
             }
             .frame(height: 28)
 
-            // Data source tracks
+            // Track list — model-driven from timeline.tracks
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 2) {
                     if let doc = sessionDocument {
-                        ForEach(doc.sources, id: \.id) { source in
-                            timelineTrackForSource(source, doc: doc)
+                        let tracks    = doc.timeline.tracks
+                        let durationMs = doc.timeline.duration * 1_000
+
+                        ForEach(tracks) { track in
+                            TimelineTrackRow(
+                                track: track,
+                                viewportMs: viewportMs,
+                                sessionDurationMs: durationMs,
+                                sparklineData: nil,
+                                onPin: { onPinTrack?(track.id) },
+                                onMute: { onMuteTrack?(track.id) },
+                                onSolo: { onSoloTrack?(track.id) },
+                                onToggleVisibility: { onToggleTrackVisibility?(track.id) },
+                                onOffsetDrag: { delta in onOffsetTrack?(track.id, delta) }
+                            )
+                        }
+                        .onMove { source, destination in
+                            onMoveTracks?(source, destination)
                         }
                     }
                 }
             }
 
+            // Cue track — fixed at the bottom, outside the scroll view
+            if let doc = sessionDocument {
+                Divider()
+                    .background(Color(white: 0.15))
+
+                CueTrackView(
+                    cueMarkers: doc.cueMarkers,
+                    viewportMs: viewportMs,
+                    onAddCue: { onAddCue?() },
+                    onDeleteCue: { id in onDeleteCue?(id) },
+                    onSeekToCue: { timeMs in
+                        onSeekToCue?(timeMs)
+                        playheadController.seek(to: timeMs)
+                    },
+                    onRenameCue: { id, label in onRenameCue?(id, label) }
+                )
+            }
+
             Spacer()
         }
         .overlay(alignment: .topLeading) {
-            GeometryReader { geo in
-                // Playhead line (red vertical)
-                let totalWidth = geo.size.width - 80
-                let durationMs = viewportMs.upperBound - viewportMs.lowerBound
-                let normalizedPos = durationMs > 0
-                    ? (playheadController.currentTimeMs - viewportMs.lowerBound) / durationMs
-                    : 0
-                let xPos = CGFloat(normalizedPos) * totalWidth
-
-                if normalizedPos >= 0 && normalizedPos <= 1 {
-                    VStack(spacing: 0) {
-                        Rectangle()
-                            .fill(.red)
-                            .frame(width: 1)
-                    }
-                    .position(x: xPos, y: 14)  // y = ruler height
-                }
-            }
+            playheadOverlay
         }
-        .gesture(
-            MagnificationGesture()
-                .onChanged { scale in
-                    let centerMs = (viewportMs.lowerBound + viewportMs.upperBound) / 2
-                    let halfDuration = (viewportMs.upperBound - viewportMs.lowerBound) / 2
-                    let newHalfDuration = halfDuration / scale
-
-                    // Clamp to reasonable zoom levels
-                    let minDuration = 5_000.0  // 5 seconds min
-                    let maxDuration = sessionDocument?.timeline.duration ?? 60  // session duration max
-                    let clampedDuration = min(
-                        max(newHalfDuration * 2, minDuration),
-                        maxDuration * 1000
-                    )
-                    let clampedHalf = clampedDuration / 2
-
-                    viewportMs = (centerMs - clampedHalf)...(centerMs + clampedHalf)
-                }
-        )
+        .gesture(zoomGesture)
+        .modifier(CueKeyPressModifier(onAddCue: onAddCue))
     }
 
+    // MARK: - Playhead overlay
+
     @ViewBuilder
-    private func timelineTrackForSource(_ source: DataSource, doc: SessionDocument) -> some View {
-        switch source {
-        case .goProVideo(_, _, let role):
-            TimelineTrackRow(
-                label: "Video (\(role.rawValue))",
-                color: .blue,
-                isVideoTrack: true,
-                viewportMs: viewportMs,
-                durationMs: doc.timeline.duration * 1000
-            )
-        case .fitFile(_, _, let device):
-            TimelineTrackRow(
-                label: "FIT (\(device ?? "Unknown"))",
-                color: .green,
-                isVideoTrack: false,
-                viewportMs: viewportMs,
-                durationMs: doc.timeline.duration * 1000
-            )
-        case .csvFile(_, _, let device):
-            TimelineTrackRow(
-                label: "CSV (\(device ?? "Unknown"))",
-                color: .orange,
-                isVideoTrack: false,
-                viewportMs: viewportMs,
-                durationMs: doc.timeline.duration * 1000
-            )
-        case .sidecar:
-            EmptyView()
+    private var playheadOverlay: some View {
+        GeometryReader { geo in
+            let contentWidth  = geo.size.width - 80
+            let durationMs    = viewportMs.upperBound - viewportMs.lowerBound
+            let normalizedPos = durationMs > 0
+                ? (playheadController.currentTimeMs - viewportMs.lowerBound) / durationMs
+                : 0
+
+            if normalizedPos >= 0 && normalizedPos <= 1 {
+                let xPos = 80 + CGFloat(normalizedPos) * contentWidth
+
+                Rectangle()
+                    .fill(RDS.Colors.accent)
+                    .frame(width: 2)
+                    .shadow(color: RDS.Colors.accent.opacity(0.4), radius: 6, x: 0, y: 0)
+                    .frame(maxHeight: .infinity)
+                    .position(x: xPos, y: geo.size.height / 2)
+            }
+        }
+    }
+
+    // MARK: - Zoom gesture
+
+    private var zoomGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { scale in
+                let centerMs     = (viewportMs.lowerBound + viewportMs.upperBound) / 2
+                let halfDuration = (viewportMs.upperBound - viewportMs.lowerBound) / 2
+                let newHalf      = halfDuration / scale
+                let minDuration  = 5_000.0
+                let maxDuration  = (sessionDocument?.timeline.duration ?? 60) * 1_000
+                let clamped      = min(max(newHalf * 2, minDuration), maxDuration)
+                let clampedHalf  = clamped / 2
+                viewportMs = (centerMs - clampedHalf)...(centerMs + clampedHalf)
+            }
+    }
+}
+
+// MARK: - Keyboard shortcut modifier
+
+/// Wraps `.onKeyPress("m")` behind an availability check (macOS 14+).
+private struct CueKeyPressModifier: ViewModifier {
+    let onAddCue: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if #available(macOS 14.0, *) {
+            content.onKeyPress("m") {
+                onAddCue?()
+                return .handled
+            }
+        } else {
+            content
         }
     }
 }

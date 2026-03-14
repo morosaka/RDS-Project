@@ -5,8 +5,9 @@
 // Timeline track reference with sync offset.
 // Links a data stream from a DataSource to the session timeline.
 //
-// Version: 1.1.0 (2026-03-13)
+// Version: 1.2.0 (2026-03-14)
 // Revision History:
+//   2026-03-14: Add Array<TimelineTrack>.soloAudio(trackID:) and applyOffset(_:to:) (Phase 8c.4).
 //   2026-03-13: Add TimelineTrack.virtual() factory for widget-generated tracks (Phase 8c.2).
 //   2026-03-01: Initial implementation (Phase 1: Data Models)
 //
@@ -128,6 +129,40 @@ public struct TimelineTrack: Codable, Sendable, Hashable, Identifiable {
         isVisible = try container.decodeIfPresent(Bool.self, forKey: .isVisible) ?? true
         isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
         isSolo = try container.decodeIfPresent(Bool.self, forKey: .isSolo) ?? false
+    }
+}
+
+// MARK: - Array mutations
+
+extension Array where Element == TimelineTrack {
+
+    /// Solo the given audio track: mute all other `.audio` tracks, unmute this one.
+    ///
+    /// Non-audio tracks are not affected. If `trackID` is not found, no change occurs.
+    public mutating func soloAudio(trackID: UUID) {
+        for i in indices where self[i].stream == .audio {
+            self[i].isMuted = (self[i].id != trackID)
+            self[i].isSolo  = (self[i].id == trackID)
+        }
+    }
+
+    /// Add `delta` seconds to the offset of the track with the given id.
+    public mutating func applyOffset(_ delta: TimeInterval, to trackID: UUID) {
+        for i in indices where self[i].id == trackID {
+            self[i] = TimelineTrack(
+                id:            self[i].id,
+                sourceID:      self[i].sourceID,
+                stream:        self[i].stream,
+                offset:        self[i].offset + delta,
+                displayName:   self[i].displayName,
+                linkedWidgetID: self[i].linkedWidgetID,
+                metricID:      self[i].metricID,
+                isPinned:      self[i].isPinned,
+                isVisible:     self[i].isVisible,
+                isMuted:       self[i].isMuted,
+                isSolo:        self[i].isSolo
+            )
+        }
     }
 }
 
